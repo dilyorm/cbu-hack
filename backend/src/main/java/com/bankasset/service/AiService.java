@@ -55,6 +55,14 @@ public class AiService {
      * Assesses failure risk for an asset, enhanced with Gemini insights when available.
      */
     public AiRiskAssessment assessRisk(Long assetId) {
+        return assessRisk(assetId, true);
+    }
+
+    /**
+     * Internal risk assessment with optional Gemini enhancement.
+     * @param useGemini if true, enhances assessment with Gemini AI insights
+     */
+    private AiRiskAssessment assessRisk(Long assetId, boolean useGemini) {
         Asset asset = assetRepository.findById(assetId)
                 .orElseThrow(() -> new RuntimeException("Asset not found"));
 
@@ -115,8 +123,8 @@ public class AiService {
             recommendations.add("Monitor closely for recurring issues");
         }
 
-        // Try to enhance with Gemini AI
-        if (geminiService.isEnabled()) {
+        // Try to enhance with Gemini AI (only for individual assessments, not batch)
+        if (useGemini && geminiService.isEnabled()) {
             try {
                 Map<String, Object> geminiInsights = geminiService.enhanceRiskAssessment(
                         asset.getName(), asset.getType(), asset.getStatus().name(),
@@ -164,6 +172,7 @@ public class AiService {
 
     /**
      * Batch risk assessment for all active assets.
+     * Uses rule-based assessment only (skips Gemini) to avoid N serial API calls.
      */
     public List<AiRiskAssessment> assessAllRisks() {
         List<Asset> activeAssets = assetRepository.findAll().stream()
@@ -171,13 +180,14 @@ public class AiService {
                 .toList();
 
         return activeAssets.stream()
-                .map(asset -> assessRisk(asset.getId()))
+                .map(asset -> assessRisk(asset.getId(), false))
                 .sorted((a, b) -> Double.compare(b.getFailureProbability(), a.getFailureProbability()))
                 .toList();
     }
 
     /**
      * Get high-risk assets that need attention.
+     * Uses rule-based assessment only (skips Gemini) for batch performance.
      */
     public List<AiRiskAssessment> getHighRiskAssets() {
         return assessAllRisks().stream()

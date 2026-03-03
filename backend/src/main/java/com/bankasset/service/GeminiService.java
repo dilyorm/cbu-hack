@@ -3,13 +3,21 @@ package com.bankasset.service;
 import com.bankasset.dto.AiCategoryRecommendation;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.netty.channel.ChannelOption;
+import io.netty.handler.timeout.ReadTimeoutHandler;
+import io.netty.handler.timeout.WriteTimeoutHandler;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
+import reactor.netty.http.client.HttpClient;
+import reactor.util.retry.Retry;
 
 import java.time.Duration;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 @Service
 @Slf4j
@@ -20,6 +28,16 @@ public class GeminiService {
     private final boolean enabled;
     private final String apiKey;
     private final String model;
+
+    private static final int CONNECT_TIMEOUT_MS = 10_000;
+    private static final int READ_TIMEOUT_SECONDS = 120;
+    private static final int WRITE_TIMEOUT_SECONDS = 30;
+    private static final Duration RESPONSE_TIMEOUT = Duration.ofSeconds(120);
+    private static final Duration REACTIVE_TIMEOUT = Duration.ofSeconds(120);
+    private static final int MAX_RETRIES = 2;
+    private static final Duration RETRY_MIN_BACKOFF = Duration.ofSeconds(2);
+    private static final Duration RETRY_MAX_BACKOFF = Duration.ofSeconds(10);
+    private static final int MAX_IN_MEMORY_SIZE = 4 * 1024 * 1024; // 4MB
 
     public GeminiService(
             @Value("${app.gemini.api-key:}") String apiKey,
@@ -32,11 +50,21 @@ public class GeminiService {
         this.objectMapper = objectMapper;
 
         if (this.enabled) {
+            HttpClient httpClient = HttpClient.create()
+                    .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, CONNECT_TIMEOUT_MS)
+                    .responseTimeout(RESPONSE_TIMEOUT)
+                    .doOnConnected(conn -> conn
+                            .addHandlerLast(new ReadTimeoutHandler(READ_TIMEOUT_SECONDS, TimeUnit.SECONDS))
+                            .addHandlerLast(new WriteTimeoutHandler(WRITE_TIMEOUT_SECONDS, TimeUnit.SECONDS)));
+
             this.webClient = WebClient.builder()
                     .baseUrl("https://generativelanguage.googleapis.com/v1beta")
                     .defaultHeader("Content-Type", "application/json")
+                    .clientConnector(new ReactorClientHttpConnector(httpClient))
+                    .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(MAX_IN_MEMORY_SIZE))
                     .build();
-            log.info("Gemini AI service initialized with model: {}", model);
+            log.info("Gemini AI service initialized with model: {} (timeout: {}s, retries: {})",
+                    model, REACTIVE_TIMEOUT.getSeconds(), MAX_RETRIES);
         } else {
             this.webClient = null;
             log.info("Gemini AI service is disabled (no API key or disabled in config)");
@@ -102,13 +130,24 @@ public class GeminiService {
         );
 
         try {
+            long startTime = System.currentTimeMillis();
+
             String responseBody = webClient.post()
                     .uri("/models/{model}:generateContent?key={key}", model, apiKey)
                     .bodyValue(requestBody)
                     .retrieve()
                     .bodyToMono(String.class)
-                    .timeout(Duration.ofSeconds(15))
+                    .timeout(REACTIVE_TIMEOUT)
+                    .retryWhen(Retry.backoff(MAX_RETRIES, RETRY_MIN_BACKOFF)
+                            .maxBackoff(RETRY_MAX_BACKOFF)
+                            .filter(this::isRetryableError)
+                            .doBeforeRetry(signal -> log.warn(
+                                    "Retrying Gemini API call (attempt {}): {}",
+                                    signal.totalRetries() + 1, signal.failure().getMessage())))
                     .block();
+
+            long elapsed = System.currentTimeMillis() - startTime;
+            log.debug("Gemini API call completed in {}ms", elapsed);
 
             if (responseBody == null) return null;
 
@@ -117,11 +156,40 @@ public class GeminiService {
             if (candidates.isArray() && !candidates.isEmpty()) {
                 return candidates.get(0).path("content").path("parts").get(0).path("text").asText();
             }
+
+            // Check for blocked or error responses
+            JsonNode promptFeedback = root.path("promptFeedback");
+            if (promptFeedback.has("blockReason")) {
+                log.warn("Gemini API blocked request: {}", promptFeedback.path("blockReason").asText());
+            }
+
             return null;
         } catch (Exception e) {
-            log.warn("Gemini API call failed: {}", e.getMessage());
+            log.warn("Gemini API call failed after retries: {}", e.getMessage());
             return null;
         }
+    }
+
+    /**
+     * Determines if an error is retryable (timeouts, server errors).
+     * Client errors (400, 401, 403) are NOT retried.
+     */
+    private boolean isRetryableError(Throwable throwable) {
+        if (throwable instanceof java.util.concurrent.TimeoutException) {
+            return true;
+        }
+        if (throwable instanceof io.netty.handler.timeout.ReadTimeoutException) {
+            return true;
+        }
+        if (throwable instanceof WebClientResponseException wcre) {
+            int status = wcre.getStatusCode().value();
+            // Retry on 429 (rate limit), 500, 502, 503, 504
+            return status == 429 || status >= 500;
+        }
+        if (throwable instanceof java.io.IOException) {
+            return true;
+        }
+        return false;
     }
 
     private String buildCategoryPrompt(String name, String description, List<String> categories) {
