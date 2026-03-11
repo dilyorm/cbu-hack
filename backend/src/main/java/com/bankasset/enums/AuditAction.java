@@ -1,0 +1,5 @@
+package com.bankasset.enums;
+
+public enum AuditAction {
+    CREATE, UPDATE, DELETE, STATUS_CHANGE, ASSIGN, UNASSIGN, QR_GENERATED, IMAGE_UPLOADED, LOGIN, REGISTER
+}
