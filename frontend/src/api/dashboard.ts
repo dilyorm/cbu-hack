@@ -5,11 +5,6 @@ export const dashboardApi = {
   getStats: () => api.get<DashboardStats>('/dashboard/stats').then(r => r.data),
 };
 
-<<<<<<< Updated upstream
-export const auditApi = {
-  getAll: (page = 0, size = 50) =>
-    api.get<Page<AuditLog>>('/audit', { params: { page, size } }).then(r => r.data),
-=======
 export interface AuditFilters {
   action?: string;
   entityType?: string;
@@ -30,7 +25,6 @@ export const auditApi = {
         ...(filters?.endDate ? { endDate: filters.endDate } : {}),
       }
     }).then(r => r.data),
->>>>>>> Stashed changes
   getForEntity: (entityType: string, entityId: number, page = 0, size = 50) =>
     api.get<Page<AuditLog>>(`/audit/entity/${entityType}/${entityId}`, { params: { page, size } }).then(r => r.data),
   getByUser: (performedBy: string, page = 0, size = 50) =>

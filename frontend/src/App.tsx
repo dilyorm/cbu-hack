@@ -32,8 +32,6 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-<<<<<<< Updated upstream
-=======
 /** Only ADMIN and MANAGER can access; redirect USER to dashboard */
 function ManagerRoute({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
@@ -43,7 +41,6 @@ function ManagerRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
->>>>>>> Stashed changes
 export default function App() {
   return (
     <Routes>
@@ -59,21 +56,12 @@ export default function App() {
               <Route path="/" element={<Dashboard />} />
               <Route path="/assets" element={<Assets />} />
               <Route path="/assets/:id" element={<AssetDetail />} />
-<<<<<<< Updated upstream
-              <Route path="/employees" element={<Employees />} />
-              <Route path="/departments" element={<Departments />} />
-              <Route path="/branches" element={<Branches />} />
-              <Route path="/audit" element={<AuditLogs />} />
-              <Route path="/analytics" element={<Analytics />} />
-              <Route path="/ai" element={<AiInsights />} />
-=======
               <Route path="/employees" element={<ManagerRoute><Employees /></ManagerRoute>} />
               <Route path="/departments" element={<ManagerRoute><Departments /></ManagerRoute>} />
               <Route path="/branches" element={<ManagerRoute><Branches /></ManagerRoute>} />
               <Route path="/audit" element={<ManagerRoute><AuditLogs /></ManagerRoute>} />
               <Route path="/analytics" element={<ManagerRoute><Analytics /></ManagerRoute>} />
               <Route path="/ai" element={<ManagerRoute><AiInsights /></ManagerRoute>} />
->>>>>>> Stashed changes
             </Routes>
           </Layout>
         </ProtectedRoute>

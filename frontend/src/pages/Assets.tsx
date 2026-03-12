@@ -1,18 +1,11 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-<<<<<<< Updated upstream
-import { PlusIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
-=======
 import { PlusIcon, MagnifyingGlassIcon, PhotoIcon } from '@heroicons/react/24/outline';
->>>>>>> Stashed changes
 import toast from 'react-hot-toast';
 import { assetApi } from '../api/assets';
 import { aiApi } from '../api/dashboard';
 import type { Asset, AssetCreateRequest, AssetCategory, Page, AiCategoryRecommendation } from '../types';
-<<<<<<< Updated upstream
-=======
 import { useAuth } from '../contexts/AuthContext';
->>>>>>> Stashed changes
 import StatusBadge from '../components/StatusBadge';
 import Modal from '../components/Modal';
 import Pagination from '../components/Pagination';
@@ -21,13 +14,10 @@ import EmptyState from '../components/EmptyState';
 import { formatCurrency } from '../utils/status';
 
 export default function Assets() {
-<<<<<<< Updated upstream
-=======
   const { user } = useAuth();
   const canEdit = user?.role === 'ADMIN' || user?.role === 'MANAGER';
   const canDelete = user?.role === 'ADMIN';
 
->>>>>>> Stashed changes
   const [assets, setAssets] = useState<Page<Asset> | null>(null);
   const [categories, setCategories] = useState<AssetCategory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,16 +25,11 @@ export default function Assets() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [categoryFilter, setCategoryFilter] = useState<string>('');
-<<<<<<< Updated upstream
-  const [showCreate, setShowCreate] = useState(false);
-  const [aiRecommendation, setAiRecommendation] = useState<AiCategoryRecommendation | null>(null);
-=======
   const [typeFilter, setTypeFilter] = useState<string>('');
   const [showCreate, setShowCreate] = useState(false);
   const [aiRecommendation, setAiRecommendation] = useState<AiCategoryRecommendation | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
->>>>>>> Stashed changes
 
   const [form, setForm] = useState<AssetCreateRequest>({
     name: '', serialNumber: '', type: '', categoryId: 0,
@@ -54,25 +39,17 @@ export default function Assets() {
     setLoading(true);
     const promise = search
       ? assetApi.search(search, page, 20)
-<<<<<<< Updated upstream
-      : assetApi.getAll(page, 20);
-=======
       : assetApi.getAll(page, 20, 'createdAt,desc', {
           status: statusFilter || undefined,
           categoryId: categoryFilter ? Number(categoryFilter) : undefined,
           type: typeFilter || undefined,
         });
->>>>>>> Stashed changes
 
     promise
       .then(setAssets)
       .catch((err: Error) => toast.error(err.message))
       .finally(() => setLoading(false));
-<<<<<<< Updated upstream
-  }, [page, search]);
-=======
   }, [page, search, statusFilter, categoryFilter, typeFilter]);
->>>>>>> Stashed changes
 
   useEffect(() => {
     loadAssets();
@@ -82,15 +59,6 @@ export default function Assets() {
     assetApi.getCategories().then(setCategories).catch(console.error);
   }, []);
 
-<<<<<<< Updated upstream
-  const handleCreate = async () => {
-    try {
-      await assetApi.create(form);
-      toast.success('Asset created successfully');
-      setShowCreate(false);
-      setForm({ name: '', serialNumber: '', type: '', categoryId: 0 });
-      setAiRecommendation(null);
-=======
   const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -120,7 +88,6 @@ export default function Assets() {
       }
       toast.success('Asset created successfully');
       resetModal();
->>>>>>> Stashed changes
       loadAssets();
     } catch (err: any) {
       toast.error(err.message);
@@ -138,18 +105,26 @@ export default function Assets() {
     }
   };
 
+  const [isRecommending, setIsRecommending] = useState(false);
+
   const handleAiRecommend = async () => {
-    if (!form.name) return;
+    if (!form.name) {
+      toast.error('Please enter a name first');
+      return;
+    }
+    setIsRecommending(true);
     try {
       const rec = await aiApi.recommendCategory(form.name, form.description);
       setAiRecommendation(rec);
-      const cat = categories.find(c => c.name === rec.recommendedCategory);
+      const cat = categories.find(c => c.name.toLowerCase() === rec.recommendedCategory.toLowerCase().trim());
       if (cat) {
         setForm(prev => ({ ...prev, categoryId: cat.id, type: rec.recommendedType }));
       }
       toast.success(`AI recommends: ${rec.recommendedCategory} (${(rec.confidence * 100).toFixed(0)}% confidence)`);
     } catch {
       toast.error('AI recommendation failed');
+    } finally {
+      setIsRecommending(false);
     }
   };
 
@@ -159,17 +134,9 @@ export default function Assets() {
     loadAssets();
   };
 
-<<<<<<< Updated upstream
-  const filteredAssets = assets?.content.filter(a => {
-    if (statusFilter && a.status !== statusFilter) return false;
-    if (categoryFilter && a.categoryId !== Number(categoryFilter)) return false;
-    return true;
-  });
-=======
   const handleFilterChange = () => {
     setPage(0);
   };
->>>>>>> Stashed changes
 
   return (
     <div className="space-y-4">
@@ -182,11 +149,7 @@ export default function Assets() {
               type="text"
               placeholder="Search assets..."
               value={search}
-<<<<<<< Updated upstream
-              onChange={(e) => setSearch(e.target.value)}
-=======
               onChange={(e) => { setSearch(e.target.value); if (!e.target.value) setPage(0); }}
->>>>>>> Stashed changes
               className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             />
           </div>
@@ -195,13 +158,8 @@ export default function Assets() {
           </button>
         </form>
 
-<<<<<<< Updated upstream
-        <div className="flex gap-2 items-center">
-          <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-=======
         <div className="flex flex-wrap gap-2 items-center">
           <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); handleFilterChange(); }}
->>>>>>> Stashed changes
             className="border border-gray-300 rounded-lg px-3 py-2 text-sm">
             <option value="">All Statuses</option>
             <option value="REGISTERED">Registered</option>
@@ -211,11 +169,7 @@ export default function Assets() {
             <option value="WRITTEN_OFF">Written Off</option>
           </select>
 
-<<<<<<< Updated upstream
-          <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}
-=======
           <select value={categoryFilter} onChange={e => { setCategoryFilter(e.target.value); handleFilterChange(); }}
->>>>>>> Stashed changes
             className="border border-gray-300 rounded-lg px-3 py-2 text-sm">
             <option value="">All Categories</option>
             {categories.map(c => (
@@ -223,15 +177,6 @@ export default function Assets() {
             ))}
           </select>
 
-<<<<<<< Updated upstream
-          <button
-            onClick={() => setShowCreate(true)}
-            className="flex items-center gap-1 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700"
-          >
-            <PlusIcon className="h-4 w-4" />
-            Add Asset
-          </button>
-=======
           <input
             type="text"
             placeholder="Filter by type..."
@@ -249,23 +194,12 @@ export default function Assets() {
               Add Asset
             </button>
           )}
->>>>>>> Stashed changes
         </div>
       </div>
 
       {/* Asset Table */}
       {loading ? (
         <LoadingSpinner />
-<<<<<<< Updated upstream
-      ) : !filteredAssets || filteredAssets.length === 0 ? (
-        <EmptyState
-          title="No assets found"
-          description="Get started by adding your first asset"
-          action={
-            <button onClick={() => setShowCreate(true)} className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700">
-              Add Asset
-            </button>
-=======
       ) : !assets || assets.content.length === 0 ? (
         <EmptyState
           title="No assets found"
@@ -276,7 +210,6 @@ export default function Assets() {
                 Add Asset
               </button>
             ) : undefined
->>>>>>> Stashed changes
           }
         />
       ) : (
@@ -296,14 +229,6 @@ export default function Assets() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-<<<<<<< Updated upstream
-                {filteredAssets.map((asset) => (
-                  <tr key={asset.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4">
-                      <Link to={`/assets/${asset.id}`} className="text-sm font-medium text-indigo-600 hover:text-indigo-800">
-                        {asset.name}
-                      </Link>
-=======
                 {assets.content.map((asset) => (
                   <tr key={asset.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4">
@@ -324,7 +249,6 @@ export default function Assets() {
                           {asset.name}
                         </Link>
                       </div>
->>>>>>> Stashed changes
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500 font-mono">{asset.serialNumber}</td>
                     <td className="px-6 py-4 text-sm text-gray-500">{asset.type}</td>
@@ -335,13 +259,9 @@ export default function Assets() {
                     <td className="px-6 py-4">
                       <div className="flex gap-2">
                         <Link to={`/assets/${asset.id}`} className="text-sm text-indigo-600 hover:text-indigo-800">View</Link>
-<<<<<<< Updated upstream
-                        <button onClick={() => handleDelete(asset.id)} className="text-sm text-red-600 hover:text-red-800">Delete</button>
-=======
                         {canDelete && (
                           <button onClick={() => handleDelete(asset.id)} className="text-sm text-red-600 hover:text-red-800">Delete</button>
                         )}
->>>>>>> Stashed changes
                       </div>
                     </td>
                   </tr>
@@ -357,139 +277,6 @@ export default function Assets() {
       )}
 
       {/* Create Asset Modal */}
-<<<<<<< Updated upstream
-      <Modal open={showCreate} onClose={() => { setShowCreate(false); setAiRecommendation(null); }} title="Add New Asset" size="lg">
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
-                  placeholder="e.g. Dell Latitude 5520"
-                />
-                <button
-                  type="button"
-                  onClick={handleAiRecommend}
-                  className="px-3 py-2 bg-purple-600 text-white rounded-lg text-xs hover:bg-purple-700 whitespace-nowrap"
-                  title="AI will recommend category and type"
-                >
-                  AI Suggest
-                </button>
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Serial Number *</label>
-              <input
-                type="text"
-                value={form.serialNumber}
-                onChange={(e) => setForm({ ...form, serialNumber: e.target.value })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
-                placeholder="e.g. SN-2024-001"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Type *</label>
-              <input
-                type="text"
-                value={form.type}
-                onChange={(e) => setForm({ ...form, type: e.target.value })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
-                placeholder="e.g. LAPTOP"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Category *</label>
-              <select
-                value={form.categoryId}
-                onChange={(e) => setForm({ ...form, categoryId: Number(e.target.value) })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
-              >
-                <option value={0}>Select category</option>
-                {categories.map(c => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Purchase Date</label>
-              <input
-                type="date"
-                value={form.purchaseDate || ''}
-                onChange={(e) => setForm({ ...form, purchaseDate: e.target.value || undefined })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Purchase Cost</label>
-              <input
-                type="number"
-                step="0.01"
-                value={form.purchaseCost || ''}
-                onChange={(e) => setForm({ ...form, purchaseCost: e.target.value ? Number(e.target.value) : undefined })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
-                placeholder="0.00"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Warranty Expiry</label>
-              <input
-                type="date"
-                value={form.warrantyExpiryDate || ''}
-                onChange={(e) => setForm({ ...form, warrantyExpiryDate: e.target.value || undefined })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
-              />
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-            <textarea
-              value={form.description || ''}
-              onChange={(e) => setForm({ ...form, description: e.target.value || undefined })}
-              rows={2}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-            <textarea
-              value={form.notes || ''}
-              onChange={(e) => setForm({ ...form, notes: e.target.value || undefined })}
-              rows={2}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
-            />
-          </div>
-
-          {/* AI Recommendation Banner */}
-          {aiRecommendation && (
-            <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
-              <p className="text-sm font-medium text-purple-800">AI Recommendation</p>
-              <p className="text-sm text-purple-700">
-                Category: <strong>{aiRecommendation.recommendedCategory}</strong> |
-                Type: <strong>{aiRecommendation.recommendedType}</strong> |
-                Confidence: <strong>{(aiRecommendation.confidence * 100).toFixed(0)}%</strong>
-              </p>
-              <p className="text-xs text-purple-600 mt-1">{aiRecommendation.reasoning}</p>
-            </div>
-          )}
-
-          <div className="flex justify-end gap-2 pt-2">
-            <button onClick={() => { setShowCreate(false); setAiRecommendation(null); }}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50">
-              Cancel
-            </button>
-            <button onClick={handleCreate}
-              disabled={!form.name || !form.serialNumber || !form.type || !form.categoryId}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed">
-              Create Asset
-            </button>
-          </div>
-        </div>
-      </Modal>
-=======
       {canEdit && (
         <Modal open={showCreate} onClose={resetModal} title="Add New Asset" size="lg">
           <div className="space-y-4">
@@ -546,10 +333,19 @@ export default function Assets() {
                   <button
                     type="button"
                     onClick={handleAiRecommend}
-                    className="px-3 py-2 bg-purple-600 text-white rounded-lg text-xs hover:bg-purple-700 whitespace-nowrap"
+                    disabled={isRecommending || !form.name}
+                    className="px-3 py-2 bg-purple-600 text-white flex items-center gap-1 rounded-lg text-xs hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                     title="AI will recommend category and type"
                   >
-                    AI Suggest
+                    {isRecommending ? (
+                      <>
+                        <svg className="animate-spin h-3 w-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Suggesting...
+                      </>
+                    ) : 'AI Suggest'}
                   </button>
                 </div>
               </div>
@@ -666,7 +462,6 @@ export default function Assets() {
           </div>
         </Modal>
       )}
->>>>>>> Stashed changes
     </div>
   );
 }

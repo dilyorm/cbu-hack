@@ -6,16 +6,11 @@ import type { Department, DepartmentRequest, Branch } from '../types';
 import Modal from '../components/Modal';
 import LoadingSpinner from '../components/LoadingSpinner';
 import EmptyState from '../components/EmptyState';
-<<<<<<< Updated upstream
-
-export default function Departments() {
-=======
 import { useAuth } from '../contexts/AuthContext';
 
 export default function Departments() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
->>>>>>> Stashed changes
   const [departments, setDepartments] = useState<Department[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,19 +52,12 @@ export default function Departments() {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <p className="text-sm text-gray-500">{departments.length} departments</p>
-<<<<<<< Updated upstream
-        <button onClick={() => setShowCreate(true)}
-          className="flex items-center gap-1 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700">
-          <PlusIcon className="h-4 w-4" /> Add Department
-        </button>
-=======
         {isAdmin && (
           <button onClick={() => setShowCreate(true)}
             className="flex items-center gap-1 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700">
             <PlusIcon className="h-4 w-4" /> Add Department
           </button>
         )}
->>>>>>> Stashed changes
       </div>
 
       {departments.length === 0 ? (
@@ -92,13 +80,9 @@ export default function Departments() {
                   <td className="px-6 py-4 text-sm text-gray-500 font-mono">{dept.code}</td>
                   <td className="px-6 py-4 text-sm text-gray-500">{dept.branchName || '-'}</td>
                   <td className="px-6 py-4">
-<<<<<<< Updated upstream
-                    <button onClick={() => handleDelete(dept.id)} className="text-sm text-red-600 hover:text-red-800">Delete</button>
-=======
                     {isAdmin && (
                       <button onClick={() => handleDelete(dept.id)} className="text-sm text-red-600 hover:text-red-800">Delete</button>
                     )}
->>>>>>> Stashed changes
                   </td>
                 </tr>
               ))}

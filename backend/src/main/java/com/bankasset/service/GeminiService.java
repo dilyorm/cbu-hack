@@ -42,7 +42,7 @@ public class GeminiService {
     public GeminiService(
             @Value("${app.gemini.api-key:}") String apiKey,
             @Value("${app.gemini.enabled:false}") boolean enabled,
-            @Value("${app.gemini.model:gemini-2.0-flash}") String model,
+            @Value("${app.gemini.model:gemini-2.5-pro}") String model,
             ObjectMapper objectMapper) {
         this.enabled = enabled && apiKey != null && !apiKey.isBlank();
         this.apiKey = apiKey;
@@ -124,50 +124,83 @@ public class GeminiService {
                 ),
                 "generationConfig", Map.of(
                         "temperature", 0.3,
-                        "maxOutputTokens", 1024,
+                        "maxOutputTokens", 8192,
                         "responseMimeType", "application/json"
                 )
         );
 
-        try {
-            long startTime = System.currentTimeMillis();
-
-            String responseBody = webClient.post()
-                    .uri("/models/{model}:generateContent?key={key}", model, apiKey)
-                    .bodyValue(requestBody)
-                    .retrieve()
-                    .bodyToMono(String.class)
-                    .timeout(REACTIVE_TIMEOUT)
-                    .retryWhen(Retry.backoff(MAX_RETRIES, RETRY_MIN_BACKOFF)
-                            .maxBackoff(RETRY_MAX_BACKOFF)
-                            .filter(this::isRetryableError)
-                            .doBeforeRetry(signal -> log.warn(
-                                    "Retrying Gemini API call (attempt {}): {}",
-                                    signal.totalRetries() + 1, signal.failure().getMessage())))
-                    .block();
-
-            long elapsed = System.currentTimeMillis() - startTime;
-            log.debug("Gemini API call completed in {}ms", elapsed);
-
-            if (responseBody == null) return null;
-
-            JsonNode root = objectMapper.readTree(responseBody);
-            JsonNode candidates = root.path("candidates");
-            if (candidates.isArray() && !candidates.isEmpty()) {
-                return candidates.get(0).path("content").path("parts").get(0).path("text").asText();
+        List<String> modelsToTry = new ArrayList<>();
+        modelsToTry.add(this.model);
+        for (String fallback : List.of("gemini-3.1-flash-preview", "gemini-3.1-pro-preview", "gemini-2.5-pro")) {
+            if (!modelsToTry.contains(fallback)) {
+                modelsToTry.add(fallback);
             }
-
-            // Check for blocked or error responses
-            JsonNode promptFeedback = root.path("promptFeedback");
-            if (promptFeedback.has("blockReason")) {
-                log.warn("Gemini API blocked request: {}", promptFeedback.path("blockReason").asText());
-            }
-
-            return null;
-        } catch (Exception e) {
-            log.warn("Gemini API call failed after retries: {}", e.getMessage());
-            return null;
         }
+
+        for (String currentModel : modelsToTry) {
+            try {
+                long startTime = System.currentTimeMillis();
+                log.info("Trying Gemini API with model: {}", currentModel);
+
+                String responseBody = webClient.post()
+                        .uri("/models/{model}:generateContent?key={key}", currentModel, apiKey)
+                        .bodyValue(requestBody)
+                        .retrieve()
+                        .bodyToMono(String.class)
+                        .timeout(REACTIVE_TIMEOUT)
+                        .retryWhen(Retry.backoff(MAX_RETRIES, RETRY_MIN_BACKOFF)
+                                .maxBackoff(RETRY_MAX_BACKOFF)
+                                .filter(this::isRetryableError)
+                                .doBeforeRetry(signal -> log.warn(
+                                        "Retrying Gemini API call (attempt {}): {}",
+                                        signal.totalRetries() + 1, signal.failure().getMessage())))
+                        .block();
+
+                long elapsed = System.currentTimeMillis() - startTime;
+                log.debug("Gemini API call completed in {}ms using model {}", elapsed, currentModel);
+
+                if (responseBody == null) continue;
+                log.info("Gemini raw response: {}", responseBody);
+
+                JsonNode root = objectMapper.readTree(responseBody);
+                JsonNode candidates = root.path("candidates");
+                if (candidates.isArray() && !candidates.isEmpty()) {
+                    JsonNode content = candidates.get(0).path("content");
+                    JsonNode parts = content.path("parts");
+                    if (parts.isArray() && !parts.isEmpty()) {
+                        JsonNode textNode = parts.get(0).path("text");
+                        if (!textNode.isMissingNode()) {
+                            String text = textNode.asText();
+                            // Remove markdown formatting if present
+                            if (text.startsWith("```json")) {
+                                text = text.replaceAll("```json", "");
+                                text = text.replaceAll("```", "");
+                            }
+                            return text.trim();
+                        }
+                    }
+                }
+
+                // Check for blocked or error responses
+                JsonNode promptFeedback = root.path("promptFeedback");
+                if (promptFeedback.has("blockReason")) {
+                    log.warn("Gemini API blocked request: {}", promptFeedback.path("blockReason").asText());
+                }
+
+                // Wait, if it didn't return from inside candidates, the completion isn't exactly successful, but let's assume it might just be blocked.
+                // It shouldn't continue throwing exception or trying other models if it was just blocked, or maybe it should?
+                // Returning null here will propagate null back. Just to be safe, if we reach here we can continue to the next fallback model.
+                // Except we probably don't want to if blockReason is set.
+                // I will just continue so it tries the fallback model.
+                continue;
+
+            } catch (Exception e) {
+                log.warn("Gemini API call failed for model {}: {}", currentModel, e.getMessage());
+            }
+        }
+
+        log.error("All Gemini API models failed.");
+        return null;
     }
 
     /**

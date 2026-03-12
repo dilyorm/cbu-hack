@@ -6,10 +6,6 @@ import type {
 } from '../types';
 
 export const assetApi = {
-<<<<<<< Updated upstream
-  getAll: (page = 0, size = 20, sort = 'createdAt,desc') =>
-    api.get<Page<Asset>>('/assets', { params: { page, size, sort } }).then(r => r.data),
-=======
   getAll: (page = 0, size = 20, sort = 'createdAt,desc', filters?: {
     status?: string;
     categoryId?: number;
@@ -25,7 +21,6 @@ export const assetApi = {
     if (filters?.branchId) params.branchId = filters.branchId;
     return api.get<Page<Asset>>('/assets', { params }).then(r => r.data);
   },
->>>>>>> Stashed changes
 
   getById: (id: number) =>
     api.get<Asset>(`/assets/${id}`).then(r => r.data),

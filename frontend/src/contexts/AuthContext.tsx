@@ -2,8 +2,6 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 import type { ReactNode } from 'react';
 import api from '../api/client';
 
-<<<<<<< Updated upstream
-=======
 function isTokenExpired(token: string): boolean {
   try {
     const payload = JSON.parse(atob(token.split('.')[1]));
@@ -14,7 +12,6 @@ function isTokenExpired(token: string): boolean {
   }
 }
 
->>>>>>> Stashed changes
 interface User {
   username: string;
   email: string;
@@ -40,14 +37,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-<<<<<<< Updated upstream
-    // Restore session from localStorage
-    const savedToken = localStorage.getItem('token');
-    const savedUser = localStorage.getItem('user');
-    if (savedToken && savedUser) {
-      setToken(savedToken);
-      setUser(JSON.parse(savedUser));
-=======
     // Restore session from localStorage, but only if token is not expired
     const savedToken = localStorage.getItem('token');
     const savedUser = localStorage.getItem('user');
@@ -60,7 +49,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setToken(savedToken);
         setUser(JSON.parse(savedUser));
       }
->>>>>>> Stashed changes
     }
     setLoading(false);
   }, []);
