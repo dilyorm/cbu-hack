@@ -1,4 +1,8 @@
 import axios from 'axios';
+<<<<<<< Updated upstream
+=======
+import toast from 'react-hot-toast';
+>>>>>>> Stashed changes
 
 const api = axios.create({
   baseURL: '/api',
@@ -24,11 +28,22 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
+<<<<<<< Updated upstream
       // Token expired or invalid — clear auth and redirect to login
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       if (window.location.pathname !== '/login') {
         window.location.href = '/login';
+=======
+      // Token expired or invalid — clear auth, notify user, and redirect
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      if (window.location.pathname !== '/login') {
+        toast.error('Your session has expired. Please sign in again.');
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 1500);
+>>>>>>> Stashed changes
       }
     }
     const message = error.response?.data?.message || error.message || 'An error occurred';

@@ -6,8 +6,26 @@ import type {
 } from '../types';
 
 export const assetApi = {
+<<<<<<< Updated upstream
   getAll: (page = 0, size = 20, sort = 'createdAt,desc') =>
     api.get<Page<Asset>>('/assets', { params: { page, size, sort } }).then(r => r.data),
+=======
+  getAll: (page = 0, size = 20, sort = 'createdAt,desc', filters?: {
+    status?: string;
+    categoryId?: number;
+    type?: string;
+    departmentId?: number;
+    branchId?: number;
+  }) => {
+    const params: Record<string, unknown> = { page, size, sort };
+    if (filters?.status) params.status = filters.status;
+    if (filters?.categoryId) params.categoryId = filters.categoryId;
+    if (filters?.type) params.type = filters.type;
+    if (filters?.departmentId) params.departmentId = filters.departmentId;
+    if (filters?.branchId) params.branchId = filters.branchId;
+    return api.get<Page<Asset>>('/assets', { params }).then(r => r.data);
+  },
+>>>>>>> Stashed changes
 
   getById: (id: number) =>
     api.get<Asset>(`/assets/${id}`).then(r => r.data),

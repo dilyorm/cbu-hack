@@ -161,10 +161,19 @@ export interface AiCategoryRecommendation {
 export interface AiRiskAssessment {
   assetId: number;
   assetName: string;
+<<<<<<< Updated upstream
   riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
   failureProbability: number;
   riskFactors: string[];
   recommendations: string[];
+=======
+  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' | 'UNKNOWN';
+  failureProbability: number;
+  riskFactors: string[];
+  recommendations: string[];
+  insufficientData?: boolean;
+  message?: string;
+>>>>>>> Stashed changes
 }
 
 export interface Page<T> {

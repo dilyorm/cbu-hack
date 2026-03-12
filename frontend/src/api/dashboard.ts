@@ -5,9 +5,32 @@ export const dashboardApi = {
   getStats: () => api.get<DashboardStats>('/dashboard/stats').then(r => r.data),
 };
 
+<<<<<<< Updated upstream
 export const auditApi = {
   getAll: (page = 0, size = 50) =>
     api.get<Page<AuditLog>>('/audit', { params: { page, size } }).then(r => r.data),
+=======
+export interface AuditFilters {
+  action?: string;
+  entityType?: string;
+  performedBy?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export const auditApi = {
+  getAll: (page = 0, size = 25, filters?: AuditFilters) =>
+    api.get<Page<AuditLog>>('/audit', {
+      params: {
+        page, size,
+        ...(filters?.action ? { action: filters.action } : {}),
+        ...(filters?.entityType ? { entityType: filters.entityType } : {}),
+        ...(filters?.performedBy ? { performedBy: filters.performedBy } : {}),
+        ...(filters?.startDate ? { startDate: filters.startDate } : {}),
+        ...(filters?.endDate ? { endDate: filters.endDate } : {}),
+      }
+    }).then(r => r.data),
+>>>>>>> Stashed changes
   getForEntity: (entityType: string, entityId: number, page = 0, size = 50) =>
     api.get<Page<AuditLog>>(`/audit/entity/${entityType}/${entityId}`, { params: { page, size } }).then(r => r.data),
   getByUser: (performedBy: string, page = 0, size = 50) =>

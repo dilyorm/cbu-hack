@@ -7,6 +7,7 @@ import com.bankasset.repository.AuditLogRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,6 +42,35 @@ public class AuditService {
     public Page<AuditLogResponse> getAllLogs(Pageable pageable) {
         return auditLogRepository.findAllByOrderByTimestampDesc(pageable)
                 .map(this::toResponse);
+    }
+
+    public Page<AuditLogResponse> getFilteredLogs(String action, String entityType, String performedBy,
+                                                    LocalDateTime startDate, LocalDateTime endDate,
+                                                    Pageable pageable) {
+        Specification<AuditLog> spec = Specification.where(null);
+
+        if (action != null && !action.isBlank()) {
+            try {
+                AuditAction auditAction = AuditAction.valueOf(action.toUpperCase());
+                spec = spec.and((root, query, cb) -> cb.equal(root.get("action"), auditAction));
+            } catch (IllegalArgumentException ignored) { }
+        }
+        if (entityType != null && !entityType.isBlank()) {
+            spec = spec.and((root, query, cb) ->
+                    cb.equal(cb.upper(root.get("entityType")), entityType.toUpperCase()));
+        }
+        if (performedBy != null && !performedBy.isBlank()) {
+            spec = spec.and((root, query, cb) ->
+                    cb.like(cb.lower(root.get("performedBy")), "%" + performedBy.toLowerCase() + "%"));
+        }
+        if (startDate != null) {
+            spec = spec.and((root, query, cb) -> cb.greaterThanOrEqualTo(root.get("timestamp"), startDate));
+        }
+        if (endDate != null) {
+            spec = spec.and((root, query, cb) -> cb.lessThanOrEqualTo(root.get("timestamp"), endDate));
+        }
+
+        return auditLogRepository.findAll(spec, pageable).map(this::toResponse);
     }
 
     public List<AuditLogResponse> getLogsBetween(LocalDateTime start, LocalDateTime end) {

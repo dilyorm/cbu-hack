@@ -13,6 +13,10 @@ import { assetApi } from '../api/assets';
 import { aiApi } from '../api/dashboard';
 import type { Asset, AssignmentHistory, StatusHistory, AssetStatus, Employee, AiRiskAssessment } from '../types';
 import { employeeApi } from '../api/organization';
+<<<<<<< Updated upstream
+=======
+import { useAuth } from '../contexts/AuthContext';
+>>>>>>> Stashed changes
 import StatusBadge from '../components/StatusBadge';
 import Modal from '../components/Modal';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -21,7 +25,14 @@ import { formatDate, formatDateTime, formatCurrency, riskColors } from '../utils
 export default function AssetDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+<<<<<<< Updated upstream
   const assetId = Number(id);
+=======
+  const { user } = useAuth();
+  const assetId = Number(id);
+  const canEdit = user?.role === 'ADMIN' || user?.role === 'MANAGER';
+  const currentUsername = user?.username ?? '';
+>>>>>>> Stashed changes
 
   const [asset, setAsset] = useState<Asset | null>(null);
   const [assignments, setAssignments] = useState<AssignmentHistory[]>([]);
@@ -38,9 +49,15 @@ export default function AssetDetail() {
   const [showReturnModal, setShowReturnModal] = useState(false);
 
   // Forms
+<<<<<<< Updated upstream
   const [statusForm, setStatusForm] = useState({ newStatus: '' as AssetStatus, changedBy: 'Admin', reason: '' });
   const [assignForm, setAssignForm] = useState({ employeeId: 0, assignedBy: 'Admin' });
   const [returnForm, setReturnForm] = useState({ returnedBy: 'Admin', returnNotes: '' });
+=======
+  const [statusForm, setStatusForm] = useState({ newStatus: '' as AssetStatus, changedBy: currentUsername, reason: '' });
+  const [assignForm, setAssignForm] = useState({ employeeId: 0, assignedBy: currentUsername });
+  const [returnForm, setReturnForm] = useState({ returnedBy: currentUsername, returnNotes: '' });
+>>>>>>> Stashed changes
 
   const loadAll = () => {
     setLoading(true);
@@ -138,27 +155,60 @@ export default function AssetDetail() {
           <StatusBadge status={asset.status} />
         </div>
         <div className="flex gap-2">
+<<<<<<< Updated upstream
           {asset.status === 'REGISTERED' && (
+=======
+          {canEdit && asset.status === 'REGISTERED' && (
+>>>>>>> Stashed changes
             <button onClick={() => setShowAssignModal(true)}
               className="flex items-center gap-1 px-3 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700">
               <UserPlusIcon className="h-4 w-4" /> Assign
             </button>
           )}
+<<<<<<< Updated upstream
           {asset.status === 'ASSIGNED' && (
+=======
+          {canEdit && asset.status === 'ASSIGNED' && (
+>>>>>>> Stashed changes
             <button onClick={() => setShowReturnModal(true)}
               className="flex items-center gap-1 px-3 py-2 bg-orange-600 text-white rounded-lg text-sm hover:bg-orange-700">
               <ArrowUturnLeftIcon className="h-4 w-4" /> Return
             </button>
           )}
+<<<<<<< Updated upstream
           <button onClick={() => setShowStatusModal(true)}
             className="flex items-center gap-1 px-3 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700">
             <ArrowPathIcon className="h-4 w-4" /> Change Status
           </button>
+=======
+          {canEdit && (
+            <button onClick={() => setShowStatusModal(true)}
+              className="flex items-center gap-1 px-3 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700">
+              <ArrowPathIcon className="h-4 w-4" /> Change Status
+            </button>
+          )}
+>>>>>>> Stashed changes
         </div>
       </div>
 
       {/* AI Risk Banner */}
+<<<<<<< Updated upstream
       {risk && risk.riskLevel !== 'LOW' && (
+=======
+      {risk && risk.insufficientData && (
+        <div className="rounded-lg p-4 border bg-amber-50 border-amber-200">
+          <div className="flex items-start gap-3">
+            <div className="flex-1">
+              <p className="text-sm font-medium text-amber-900">AI Risk Assessment: Insufficient Data</p>
+              <p className="text-sm text-amber-700 mt-1">
+                {risk.message ?? 'Not enough information to predict risk. Add a description and upload a photo to enable AI analysis.'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+      {risk && !risk.insufficientData && risk.riskLevel !== 'LOW' && (
+>>>>>>> Stashed changes
         <div className={`rounded-lg p-4 border ${
           risk.riskLevel === 'CRITICAL' ? 'bg-red-50 border-red-200' :
           risk.riskLevel === 'HIGH' ? 'bg-orange-50 border-orange-200' :
@@ -257,11 +307,21 @@ export default function AssetDetail() {
                   <p className="mt-2 text-sm text-gray-500">No image uploaded</p>
                 </div>
               )}
+<<<<<<< Updated upstream
               <label className="mt-3 flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 cursor-pointer">
                 <PhotoIcon className="h-4 w-4" />
                 Upload Image
                 <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
               </label>
+=======
+              {canEdit && (
+                <label className="mt-3 flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 cursor-pointer">
+                  <PhotoIcon className="h-4 w-4" />
+                  Upload Image
+                  <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+                </label>
+              )}
+>>>>>>> Stashed changes
             </div>
           </div>
         </div>

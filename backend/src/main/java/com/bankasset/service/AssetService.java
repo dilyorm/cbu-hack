@@ -11,6 +11,7 @@ import com.bankasset.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -82,6 +83,32 @@ public class AssetService {
 
     public Page<AssetResponse> getAll(Pageable pageable) {
         return assetRepository.findAll(pageable).map(this::toResponse);
+    }
+
+    public Page<AssetResponse> getFiltered(AssetStatus status, Long categoryId, String type,
+                                            Long departmentId, Long branchId, Pageable pageable) {
+        Specification<Asset> spec = Specification.where(null);
+
+        if (status != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("status"), status));
+        }
+        if (categoryId != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("category").get("id"), categoryId));
+        }
+        if (type != null && !type.isBlank()) {
+            spec = spec.and((root, query, cb) ->
+                    cb.like(cb.lower(root.get("type")), "%" + type.toLowerCase() + "%"));
+        }
+        if (departmentId != null) {
+            spec = spec.and((root, query, cb) ->
+                    cb.equal(root.get("currentDepartment").get("id"), departmentId));
+        }
+        if (branchId != null) {
+            spec = spec.and((root, query, cb) ->
+                    cb.equal(root.get("currentBranch").get("id"), branchId));
+        }
+
+        return assetRepository.findAll(spec, pageable).map(this::toResponse);
     }
 
     public Page<AssetResponse> search(String query, Pageable pageable) {

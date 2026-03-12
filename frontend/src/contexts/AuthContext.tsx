@@ -2,6 +2,19 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 import type { ReactNode } from 'react';
 import api from '../api/client';
 
+<<<<<<< Updated upstream
+=======
+function isTokenExpired(token: string): boolean {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    // exp is in seconds; Date.now() is in ms
+    return payload.exp * 1000 < Date.now();
+  } catch {
+    return true;
+  }
+}
+
+>>>>>>> Stashed changes
 interface User {
   username: string;
   email: string;
@@ -27,12 +40,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+<<<<<<< Updated upstream
     // Restore session from localStorage
     const savedToken = localStorage.getItem('token');
     const savedUser = localStorage.getItem('user');
     if (savedToken && savedUser) {
       setToken(savedToken);
       setUser(JSON.parse(savedUser));
+=======
+    // Restore session from localStorage, but only if token is not expired
+    const savedToken = localStorage.getItem('token');
+    const savedUser = localStorage.getItem('user');
+    if (savedToken && savedUser) {
+      if (isTokenExpired(savedToken)) {
+        // Silently clear stale session; client.ts will show toast on first 401
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+      } else {
+        setToken(savedToken);
+        setUser(JSON.parse(savedUser));
+      }
+>>>>>>> Stashed changes
     }
     setLoading(false);
   }, []);

@@ -7,8 +7,16 @@ import { departmentApi } from '../api/organization';
 import Modal from '../components/Modal';
 import LoadingSpinner from '../components/LoadingSpinner';
 import EmptyState from '../components/EmptyState';
+<<<<<<< Updated upstream
 
 export default function Employees() {
+=======
+import { useAuth } from '../contexts/AuthContext';
+
+export default function Employees() {
+  const { user } = useAuth();
+  const canEdit = user?.role === 'ADMIN' || user?.role === 'MANAGER';
+>>>>>>> Stashed changes
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,10 +60,19 @@ export default function Employees() {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <p className="text-sm text-gray-500">{employees.length} employees</p>
+<<<<<<< Updated upstream
         <button onClick={() => setShowCreate(true)}
           className="flex items-center gap-1 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700">
           <PlusIcon className="h-4 w-4" /> Add Employee
         </button>
+=======
+        {canEdit && (
+          <button onClick={() => setShowCreate(true)}
+            className="flex items-center gap-1 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700">
+            <PlusIcon className="h-4 w-4" /> Add Employee
+          </button>
+        )}
+>>>>>>> Stashed changes
       </div>
 
       {employees.length === 0 ? (
@@ -88,7 +105,11 @@ export default function Employees() {
                     </span>
                   </td>
                   <td className="px-6 py-4">
+<<<<<<< Updated upstream
                     {emp.active && (
+=======
+                    {canEdit && emp.active && (
+>>>>>>> Stashed changes
                       <button onClick={() => handleDeactivate(emp.id)} className="text-sm text-red-600 hover:text-red-800">
                         Deactivate
                       </button>

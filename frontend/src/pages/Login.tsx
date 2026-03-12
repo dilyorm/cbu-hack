@@ -126,6 +126,10 @@ export default function Login() {
             </div>
           )}
         </div>
+<<<<<<< Updated upstream
+=======
+        <p className="mt-6 text-xs text-gray-400 text-center">Made by Iceberg team</p>
+>>>>>>> Stashed changes
       </div>
     </div>
   );

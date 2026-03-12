@@ -17,6 +17,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -43,6 +44,7 @@ public class AssetController {
     // ===== CRUD =====
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ResponseEntity<AssetResponse> create(@Valid @RequestBody AssetCreateRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(assetService.create(request));
     }
@@ -59,8 +61,13 @@ public class AssetController {
 
     @GetMapping
     public ResponseEntity<Page<AssetResponse>> getAll(
+            @RequestParam(required = false) AssetStatus status,
+            @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false) Long departmentId,
+            @RequestParam(required = false) Long branchId,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-        return ResponseEntity.ok(assetService.getAll(pageable));
+        return ResponseEntity.ok(assetService.getFiltered(status, categoryId, type, departmentId, branchId, pageable));
     }
 
     @GetMapping("/search")
@@ -71,12 +78,14 @@ public class AssetController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ResponseEntity<AssetResponse> update(@PathVariable Long id,
                                                  @Valid @RequestBody AssetUpdateRequest request) {
         return ResponseEntity.ok(assetService.update(id, request));
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         assetService.delete(id);
         return ResponseEntity.noContent().build();
@@ -107,6 +116,7 @@ public class AssetController {
     // ===== LIFECYCLE =====
 
     @PatchMapping("/{id}/status")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ResponseEntity<AssetResponse> changeStatus(@PathVariable Long id,
                                                        @Valid @RequestBody StatusChangeRequest request) {
         return ResponseEntity.ok(assetService.changeStatus(id, request));
@@ -115,12 +125,14 @@ public class AssetController {
     // ===== ASSIGNMENT =====
 
     @PostMapping("/{id}/assign")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ResponseEntity<AssetResponse> assign(@PathVariable Long id,
                                                  @Valid @RequestBody AssignmentRequest request) {
         return ResponseEntity.ok(assetService.assignAsset(id, request));
     }
 
     @PostMapping("/{id}/return")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ResponseEntity<AssetResponse> returnAsset(@PathVariable Long id,
                                                       @Valid @RequestBody ReturnRequest request) {
         return ResponseEntity.ok(assetService.returnAsset(id, request));
@@ -154,6 +166,7 @@ public class AssetController {
     // ===== IMAGE UPLOAD =====
 
     @PostMapping("/{id}/image")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ResponseEntity<AssetResponse> uploadImage(@PathVariable Long id,
                                                       @RequestParam("file") MultipartFile file) throws IOException {
         String imagePath;
@@ -200,6 +213,7 @@ public class AssetController {
     }
 
     @PostMapping("/categories")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ResponseEntity<AssetCategory> createCategory(@RequestParam String name,
                                                          @RequestParam(required = false) String description) {
         return ResponseEntity.status(HttpStatus.CREATED).body(assetService.createCategory(name, description));

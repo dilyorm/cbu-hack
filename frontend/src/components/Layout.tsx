@@ -16,6 +16,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../contexts/AuthContext';
 
+<<<<<<< Updated upstream
 const navigation = [
   { name: 'Dashboard', href: '/', icon: HomeIcon },
   { name: 'Assets', href: '/assets', icon: CubeIcon },
@@ -25,6 +26,24 @@ const navigation = [
   { name: 'Audit Logs', href: '/audit', icon: ClipboardDocumentListIcon },
   { name: 'Analytics', href: '/analytics', icon: ChartBarIcon },
   { name: 'AI Insights', href: '/ai', icon: CpuChipIcon },
+=======
+type NavItem = {
+  name: string;
+  href: string;
+  icon: React.ElementType;
+  roles: string[];
+};
+
+const navigation: NavItem[] = [
+  { name: 'Dashboard', href: '/', icon: HomeIcon, roles: ['ADMIN', 'MANAGER', 'USER'] },
+  { name: 'Assets', href: '/assets', icon: CubeIcon, roles: ['ADMIN', 'MANAGER', 'USER'] },
+  { name: 'Employees', href: '/employees', icon: UserGroupIcon, roles: ['ADMIN', 'MANAGER'] },
+  { name: 'Departments', href: '/departments', icon: BuildingOfficeIcon, roles: ['ADMIN', 'MANAGER'] },
+  { name: 'Branches', href: '/branches', icon: BuildingOffice2Icon, roles: ['ADMIN', 'MANAGER'] },
+  { name: 'Audit Logs', href: '/audit', icon: ClipboardDocumentListIcon, roles: ['ADMIN', 'MANAGER'] },
+  { name: 'Analytics', href: '/analytics', icon: ChartBarIcon, roles: ['ADMIN', 'MANAGER'] },
+  { name: 'AI Insights', href: '/ai', icon: CpuChipIcon, roles: ['ADMIN', 'MANAGER'] },
+>>>>>>> Stashed changes
 ];
 
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -38,6 +57,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     navigate('/login');
   };
 
+<<<<<<< Updated upstream
+=======
+  const visibleNav = navigation.filter(item =>
+    user && item.roles.includes(user.role)
+  );
+
+>>>>>>> Stashed changes
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Mobile sidebar overlay */}
@@ -55,7 +81,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               </button>
             </div>
             <nav className="flex-1 overflow-y-auto p-4">
+<<<<<<< Updated upstream
               {navigation.map((item) => (
+=======
+              {visibleNav.map((item) => (
+>>>>>>> Stashed changes
                 <Link
                   key={item.name}
                   to={item.href}
@@ -92,6 +122,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 </button>
               </div>
             )}
+<<<<<<< Updated upstream
+=======
+            <div className="px-4 py-2 border-t border-gray-100">
+              <p className="text-xs text-gray-400 text-center">Made by Iceberg team</p>
+            </div>
+>>>>>>> Stashed changes
           </div>
         </div>
       )}
@@ -104,7 +140,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <span className="text-lg font-bold text-gray-900">BankAssets</span>
           </div>
           <nav className="flex-1 overflow-y-auto p-4">
+<<<<<<< Updated upstream
             {navigation.map((item) => (
+=======
+            {visibleNav.map((item) => (
+>>>>>>> Stashed changes
               <Link
                 key={item.name}
                 to={item.href}
@@ -140,6 +180,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               </button>
             </div>
           )}
+<<<<<<< Updated upstream
+=======
+          <div className="px-4 py-2 border-t border-gray-100">
+            <p className="text-xs text-gray-400 text-center">Made by Iceberg team</p>
+          </div>
+>>>>>>> Stashed changes
         </div>
       </div>
 
