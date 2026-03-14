@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { PlusIcon, MagnifyingGlassIcon, PhotoIcon } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
@@ -106,25 +106,38 @@ export default function Assets() {
   };
 
   const [isRecommending, setIsRecommending] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const handleAiRecommend = async () => {
     if (!form.name) {
       toast.error('Please enter a name first');
       return;
     }
+    
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
     setIsRecommending(true);
     try {
-      const rec = await aiApi.recommendCategory(form.name, form.description);
+      const rec = await aiApi.recommendCategory(form.name, form.description, abortController.signal);
       setAiRecommendation(rec);
       const cat = categories.find(c => c.name.toLowerCase() === rec.recommendedCategory.toLowerCase().trim());
       if (cat) {
         setForm(prev => ({ ...prev, categoryId: cat.id, type: rec.recommendedType }));
       }
       toast.success(`AI recommends: ${rec.recommendedCategory} (${(rec.confidence * 100).toFixed(0)}% confidence)`);
-    } catch {
+    } catch (err: any) {
+      if (err.name === 'CanceledError' || err.message === 'canceled' || err.code === 'ERR_CANCELED') {
+         return; // Ignore canceled requests
+      }
       toast.error('AI recommendation failed');
     } finally {
-      setIsRecommending(false);
+      if (abortControllerRef.current === abortController) {
+        setIsRecommending(false);
+      }
     }
   };
 

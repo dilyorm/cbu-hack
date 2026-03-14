@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { ShieldCheckIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function Login() {
@@ -37,8 +36,8 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <ShieldCheckIcon className="mx-auto h-12 w-12 text-indigo-600" />
-          <h1 className="mt-4 text-3xl font-bold text-gray-900">BankAssets</h1>
+          <img src="/logo.svg" alt="CBU Assets Logo" className="mx-auto h-16 w-16" />
+          <h1 className="mt-4 text-3xl font-bold text-gray-900">CBU Assets</h1>
           <p className="mt-2 text-sm text-gray-500">Smart Banking Office Asset Management</p>
         </div>
 

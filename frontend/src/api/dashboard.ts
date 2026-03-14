@@ -32,8 +32,8 @@ export const auditApi = {
 };
 
 export const aiApi = {
-  recommendCategory: (name: string, description?: string) =>
-    api.get<AiCategoryRecommendation>('/ai/recommend-category', { params: { name, description } }).then(r => r.data),
+  recommendCategory: (name: string, description?: string, signal?: AbortSignal) =>
+    api.get<AiCategoryRecommendation>('/ai/recommend-category', { params: { name, description }, signal }).then(r => r.data),
   assessRisk: (assetId: number) =>
     api.get<AiRiskAssessment>(`/ai/risk/${assetId}`).then(r => r.data),
   assessAllRisks: () =>

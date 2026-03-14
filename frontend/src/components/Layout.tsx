@@ -11,10 +11,15 @@ import {
   ClipboardDocumentListIcon,
   ChartBarIcon,
   CpuChipIcon,
-  ShieldCheckIcon,
   ArrowRightOnRectangleIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../contexts/AuthContext';
+
+function AppLogo({ className }: { className?: string }) {
+  return (
+    <img src="/logo.svg" alt="BankAssets Logo" className={className} />
+  );
+}
 
 type NavItem = {
   name: string;
@@ -58,8 +63,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <div className="fixed inset-y-0 left-0 flex w-64 flex-col bg-white shadow-xl">
             <div className="flex h-16 items-center justify-between px-4 border-b">
               <div className="flex items-center gap-2">
-                <ShieldCheckIcon className="h-8 w-8 text-indigo-600" />
-                <span className="text-lg font-bold text-gray-900">BankAssets</span>
+                <AppLogo className="h-8 w-8" />
+                <span className="text-lg font-bold text-gray-900">CBU Assets</span>
               </div>
               <button onClick={() => setSidebarOpen(false)}>
                 <XMarkIcon className="h-6 w-6 text-gray-500" />
@@ -114,8 +119,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
         <div className="flex flex-col flex-grow bg-white border-r border-gray-200">
           <div className="flex h-16 items-center gap-2 px-6 border-b border-gray-200">
-            <ShieldCheckIcon className="h-8 w-8 text-indigo-600" />
-            <span className="text-lg font-bold text-gray-900">BankAssets</span>
+            <AppLogo className="h-8 w-8" />
+            <span className="text-lg font-bold text-gray-900">CBU Assets</span>
           </div>
           <nav className="flex-1 overflow-y-auto p-4">
             {visibleNav.map((item) => (

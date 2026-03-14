@@ -37,7 +37,7 @@ services:
       # Gemini AI (optional)
       GEMINI_ENABLED: ${GEMINI_ENABLED:-false}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-pro}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.1-flash-preview}
       # S3 Storage (optional)
       S3_ENABLED: ${S3_ENABLED:-false}
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}

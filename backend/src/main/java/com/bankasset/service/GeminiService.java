@@ -42,7 +42,7 @@ public class GeminiService {
     public GeminiService(
             @Value("${app.gemini.api-key:}") String apiKey,
             @Value("${app.gemini.enabled:false}") boolean enabled,
-            @Value("${app.gemini.model:gemini-2.5-pro}") String model,
+            @Value("${app.gemini.model:gemini-3.1-flash-preview}") String model,
             ObjectMapper objectMapper) {
         this.enabled = enabled && apiKey != null && !apiKey.isBlank();
         this.apiKey = apiKey;
@@ -131,7 +131,7 @@ public class GeminiService {
 
         List<String> modelsToTry = new ArrayList<>();
         modelsToTry.add(this.model);
-        for (String fallback : List.of("gemini-3.1-flash-preview", "gemini-3.1-pro-preview", "gemini-2.5-pro")) {
+        for (String fallback : List.of("gemini-2.5-pro", "gemini-3.1-pro-preview")) {
             if (!modelsToTry.contains(fallback)) {
                 modelsToTry.add(fallback);
             }
