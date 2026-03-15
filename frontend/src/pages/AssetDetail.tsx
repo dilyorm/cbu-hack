@@ -8,10 +8,11 @@ import {
   UserPlusIcon,
   ArrowUturnLeftIcon,
   PhotoIcon,
+  PencilSquareIcon,
 } from '@heroicons/react/24/outline';
 import { assetApi } from '../api/assets';
 import { aiApi } from '../api/dashboard';
-import type { Asset, AssignmentHistory, StatusHistory, AssetStatus, Employee, AiRiskAssessment } from '../types';
+import type { Asset, AssetCategory, AssetUpdateRequest, AssignmentHistory, StatusHistory, AssetStatus, Employee, AiRiskAssessment } from '../types';
 import { employeeApi } from '../api/organization';
 import { useAuth } from '../contexts/AuthContext';
 import StatusBadge from '../components/StatusBadge';
@@ -31,6 +32,7 @@ export default function AssetDetail() {
   const [assignments, setAssignments] = useState<AssignmentHistory[]>([]);
   const [statusHistory, setStatusHistory] = useState<StatusHistory[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [categories, setCategories] = useState<AssetCategory[]>([]);
   const [risk, setRisk] = useState<AiRiskAssessment | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -40,11 +42,13 @@ export default function AssetDetail() {
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showReturnModal, setShowReturnModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   // Forms
   const [statusForm, setStatusForm] = useState({ newStatus: '' as AssetStatus, changedBy: currentUsername, reason: '' });
   const [assignForm, setAssignForm] = useState({ employeeId: 0, assignedBy: currentUsername });
   const [returnForm, setReturnForm] = useState({ returnedBy: currentUsername, returnNotes: '' });
+  const [editForm, setEditForm] = useState<AssetUpdateRequest>({});
 
   const loadAll = () => {
     setLoading(true);
@@ -79,6 +83,34 @@ export default function AssetDetail() {
   }, [assetId]);
 
   useEffect(() => { loadAll(); }, [assetId]);
+
+  useEffect(() => {
+    assetApi.getCategories().then(setCategories).catch(console.error);
+  }, []);
+
+  const openEditModal = () => {
+    if (!asset) return;
+    setEditForm({
+      name: asset.name,
+      description: asset.description,
+      type: asset.type,
+      categoryId: asset.categoryId,
+      purchaseDate: asset.purchaseDate,
+      purchaseCost: asset.purchaseCost,
+      warrantyExpiryDate: asset.warrantyExpiryDate,
+      notes: asset.notes,
+    });
+    setShowEditModal(true);
+  };
+
+  const handleUpdate = async () => {
+    try {
+      await assetApi.update(assetId, editForm);
+      toast.success('Asset updated');
+      setShowEditModal(false);
+      loadAll();
+    } catch (err: any) { toast.error(err.message); }
+  };
 
   const handleStatusChange = async () => {
     try {
@@ -161,6 +193,12 @@ export default function AssetDetail() {
             <button onClick={() => setShowStatusModal(true)}
               className="flex items-center gap-1 px-3 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700">
               <ArrowPathIcon className="h-4 w-4" /> Change Status
+            </button>
+          )}
+          {canEdit && (
+            <button onClick={openEditModal}
+              className="flex items-center gap-1 px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50">
+              <PencilSquareIcon className="h-4 w-4" /> Edit
             </button>
           )}
         </div>
@@ -508,6 +546,101 @@ export default function AssetDetail() {
               disabled={!returnForm.returnedBy}
               className="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm hover:bg-orange-700 disabled:opacity-50">
               Return Asset
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Edit Asset Modal */}
+      <Modal open={showEditModal} onClose={() => setShowEditModal(false)} title="Edit Asset" size="lg">
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+              <input
+                type="text"
+                value={editForm.name ?? ''}
+                onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Type *</label>
+              <input
+                type="text"
+                value={editForm.type ?? ''}
+                onChange={e => setEditForm(f => ({ ...f, type: e.target.value }))}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Category *</label>
+              <select
+                value={editForm.categoryId ?? ''}
+                onChange={e => setEditForm(f => ({ ...f, categoryId: Number(e.target.value) }))}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="">Select category</option>
+                {categories.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Purchase Date</label>
+              <input
+                type="date"
+                value={editForm.purchaseDate ?? ''}
+                onChange={e => setEditForm(f => ({ ...f, purchaseDate: e.target.value || undefined }))}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Purchase Cost</label>
+              <input
+                type="number"
+                step="0.01"
+                value={editForm.purchaseCost ?? ''}
+                onChange={e => setEditForm(f => ({ ...f, purchaseCost: e.target.value ? Number(e.target.value) : undefined }))}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
+                placeholder="0.00"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Warranty Expiry</label>
+              <input
+                type="date"
+                value={editForm.warrantyExpiryDate ?? ''}
+                onChange={e => setEditForm(f => ({ ...f, warrantyExpiryDate: e.target.value || undefined }))}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+            <textarea
+              value={editForm.description ?? ''}
+              onChange={e => setEditForm(f => ({ ...f, description: e.target.value || undefined }))}
+              rows={2}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+            <textarea
+              value={editForm.notes ?? ''}
+              onChange={e => setEditForm(f => ({ ...f, notes: e.target.value || undefined }))}
+              rows={2}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <button onClick={() => setShowEditModal(false)}
+              className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50">Cancel</button>
+            <button onClick={handleUpdate}
+              disabled={!editForm.name || !editForm.type || !editForm.categoryId}
+              className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed">
+              Save Changes
             </button>
           </div>
         </div>
