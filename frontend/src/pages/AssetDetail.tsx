@@ -53,14 +53,12 @@ export default function AssetDetail() {
       assetApi.getAssignmentHistory(assetId),
       assetApi.getStatusHistory(assetId),
       employeeApi.getActive(),
-      aiApi.assessRisk(assetId).catch(() => null),
     ])
-      .then(([a, ah, sh, emps, r]) => {
+      .then(([a, ah, sh, emps]) => {
         setAsset(a);
         setAssignments(ah);
         setStatusHistory(sh);
         setEmployees(emps);
-        setRisk(r);
         // Fetch resolved image URL (handles S3 presigned URLs and local fallback)
         if (a.imagePath) {
           assetApi.getImageUrl(assetId).then(url => setImageUrl(url)).catch(() => {
@@ -74,6 +72,11 @@ export default function AssetDetail() {
       .catch((err: Error) => toast.error(err.message))
       .finally(() => setLoading(false));
   };
+
+  // AI risk is expensive — fetch once on mount only, not after every action
+  useEffect(() => {
+    aiApi.assessRisk(assetId).then(setRisk).catch(() => null);
+  }, [assetId]);
 
   useEffect(() => { loadAll(); }, [assetId]);
 
