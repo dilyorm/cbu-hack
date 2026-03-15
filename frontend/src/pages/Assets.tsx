@@ -19,7 +19,7 @@ export default function Assets() {
   const canDelete = user?.role === 'ADMIN';
 
   const [searchParams] = useSearchParams();
-  const specialFilter = searchParams.get('filter'); // 'expired-warranty' | 'aging'
+  const specialFilter = searchParams.get('filter');
   const initialStatus = searchParams.get('status') || '';
 
   const [assets, setAssets] = useState<Page<Asset> | null>(null);
@@ -31,7 +31,6 @@ export default function Assets() {
   const [categoryFilter, setCategoryFilter] = useState<string>('');
   const [typeFilter, setTypeFilter] = useState<string>('');
   const [showCreate, setShowCreate] = useState(false);
-  const [aiRecommendation, setAiRecommendation] = useState<AiCategoryRecommendation | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
 
@@ -39,11 +38,89 @@ export default function Assets() {
     name: '', serialNumber: '', type: '', categoryId: 0,
   });
 
+  // ── AI ghost-text state ──────────────────────────────────────────────────
+  const [aiSuggestion, setAiSuggestion] = useState<AiCategoryRecommendation | null>(null);
+  const [isRecommending, setIsRecommending] = useState(false);
+  // ghostType / ghostCategoryId are only set when the corresponding field is still empty
+  const [ghostType, setGhostType] = useState('');
+  const [ghostCategoryId, setGhostCategoryId] = useState(0);
+  const abortRef = useRef<AbortController | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Clear ghosts whenever the user fills in a field themselves
+  const clearGhosts = useCallback(() => {
+    setGhostType('');
+    setGhostCategoryId(0);
+    setAiSuggestion(null);
+  }, []);
+
+  // Accept ghost suggestions into the real form
+  const acceptSuggestion = useCallback(() => {
+    if (!aiSuggestion) return;
+    setForm(prev => ({
+      ...prev,
+      type: ghostType || prev.type,
+      categoryId: ghostCategoryId || prev.categoryId,
+    }));
+    setGhostType('');
+    setGhostCategoryId(0);
+  }, [aiSuggestion, ghostType, ghostCategoryId]);
+
+  // Core trigger — debounced 700 ms
+  const triggerAi = useCallback((name: string, description: string | undefined, photoName?: string) => {
+    const hasEnoughInput =
+      name.trim().length >= 2 ||
+      (description ?? '').trim().length >= 3 ||
+      !!photoName;
+
+    if (!hasEnoughInput) {
+      clearGhosts();
+      return;
+    }
+
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    debounceRef.current = setTimeout(async () => {
+      if (abortRef.current) abortRef.current.abort();
+      const ctrl = new AbortController();
+      abortRef.current = ctrl;
+
+      setIsRecommending(true);
+      try {
+        const effectiveName = name.trim() ||
+          (photoName ? photoName.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ') : '');
+        const effectiveDesc = description ||
+          (photoName ? `Image filename: ${photoName}` : undefined);
+
+        const rec = await aiApi.recommendCategory(effectiveName, effectiveDesc, ctrl.signal);
+
+        if (ctrl.signal.aborted) return;
+
+        setAiSuggestion(rec);
+
+        // Only set ghost type if the user hasn't typed one yet
+        setGhostType(prev => (form.type.trim() ? prev : rec.recommendedType || ''));
+
+        // Only set ghost category if the user hasn't picked one yet
+        if (!form.categoryId) {
+          const matched = categories.find(
+            c => c.name.toLowerCase() === rec.recommendedCategory.toLowerCase().trim()
+          );
+          setGhostCategoryId(matched ? matched.id : 0);
+        }
+      } catch (err: any) {
+        if (err.name === 'CanceledError' || err.message === 'canceled' || err.code === 'ERR_CANCELED') return;
+        // Silent — ghost suggestions are best-effort
+      } finally {
+        if (abortRef.current === ctrl) setIsRecommending(false);
+      }
+    }, 700);
+  }, [categories, form.type, form.categoryId, clearGhosts]);
+
   const loadAssets = useCallback(() => {
     setLoading(true);
 
     let promise: Promise<Page<Asset>>;
-
     if (specialFilter === 'expired-warranty') {
       promise = assetApi.getExpiredWarranty().then(list => ({
         content: list, totalElements: list.length, totalPages: 1,
@@ -70,13 +147,8 @@ export default function Assets() {
       .finally(() => setLoading(false));
   }, [page, search, statusFilter, categoryFilter, typeFilter, specialFilter]);
 
-  useEffect(() => {
-    loadAssets();
-  }, [loadAssets]);
-
-  useEffect(() => {
-    assetApi.getCategories().then(setCategories).catch(console.error);
-  }, []);
+  useEffect(() => { loadAssets(); }, [loadAssets]);
+  useEffect(() => { assetApi.getCategories().then(setCategories).catch(console.error); }, []);
 
   const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -85,12 +157,16 @@ export default function Assets() {
     const reader = new FileReader();
     reader.onloadend = () => setPhotoPreview(reader.result as string);
     reader.readAsDataURL(file);
+    triggerAi(form.name, form.description, file.name);
   };
 
   const resetModal = () => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (abortRef.current) abortRef.current.abort();
     setShowCreate(false);
     setForm({ name: '', serialNumber: '', type: '', categoryId: 0 });
-    setAiRecommendation(null);
+    clearGhosts();
+    setIsRecommending(false);
     setPhotoFile(null);
     setPhotoPreview(null);
   };
@@ -99,18 +175,13 @@ export default function Assets() {
     try {
       const newAsset = await assetApi.create(form);
       if (photoFile) {
-        try {
-          await assetApi.uploadImage(newAsset.id, photoFile);
-        } catch {
-          toast.error('Asset created but photo upload failed');
-        }
+        try { await assetApi.uploadImage(newAsset.id, photoFile); }
+        catch { toast.error('Asset created but photo upload failed'); }
       }
       toast.success('Asset created successfully');
       resetModal();
       loadAssets();
-    } catch (err: any) {
-      toast.error(err.message);
-    }
+    } catch (err: any) { toast.error(err.message); }
   };
 
   const handleDelete = async (id: number) => {
@@ -119,45 +190,7 @@ export default function Assets() {
       await assetApi.delete(id);
       toast.success('Asset deleted');
       loadAssets();
-    } catch (err: any) {
-      toast.error(err.message);
-    }
-  };
-
-  const [isRecommending, setIsRecommending] = useState(false);
-  const abortControllerRef = useRef<AbortController | null>(null);
-
-  const handleAiRecommend = async () => {
-    if (!form.name) {
-      toast.error('Please enter a name first');
-      return;
-    }
-    
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    const abortController = new AbortController();
-    abortControllerRef.current = abortController;
-
-    setIsRecommending(true);
-    try {
-      const rec = await aiApi.recommendCategory(form.name, form.description, abortController.signal);
-      setAiRecommendation(rec);
-      const cat = categories.find(c => c.name.toLowerCase() === rec.recommendedCategory.toLowerCase().trim());
-      if (cat) {
-        setForm(prev => ({ ...prev, categoryId: cat.id, type: rec.recommendedType }));
-      }
-      toast.success(`AI recommends: ${rec.recommendedCategory} (${(rec.confidence * 100).toFixed(0)}% confidence)`);
-    } catch (err: any) {
-      if (err.name === 'CanceledError' || err.message === 'canceled' || err.code === 'ERR_CANCELED') {
-         return; // Ignore canceled requests
-      }
-      toast.error('AI recommendation failed');
-    } finally {
-      if (abortControllerRef.current === abortController) {
-        setIsRecommending(false);
-      }
-    }
+    } catch (err: any) { toast.error(err.message); }
   };
 
   const handleSearchSubmit = (e: React.FormEvent) => {
@@ -166,9 +199,13 @@ export default function Assets() {
     loadAssets();
   };
 
-  const handleFilterChange = () => {
-    setPage(0);
-  };
+  const handleFilterChange = () => { setPage(0); };
+
+  // Derived display values for ghosts
+  const ghostCategoryName = ghostCategoryId
+    ? (categories.find(c => c.id === ghostCategoryId)?.name ?? '')
+    : '';
+  const hasSuggestion = !!(ghostType || ghostCategoryId);
 
   return (
     <div className="space-y-4">
@@ -328,16 +365,15 @@ export default function Assets() {
         <Pagination page={assets.number} totalPages={assets.totalPages} totalElements={assets.totalElements} onPageChange={setPage} />
       )}
 
-      {/* Create Asset Modal */}
+      {/* ── Create Asset Modal ─────────────────────────────────────────── */}
       {canEdit && (
         <Modal open={showCreate} onClose={resetModal} title="Add New Asset" size="lg">
           <div className="space-y-4">
 
-            {/* ── Photo upload — first ── */}
+            {/* Photo upload */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Asset Photo{' '}
-                <span className="text-gray-400 font-normal">(recommended — enables AI risk insights)</span>
+                Asset Photo <span className="text-gray-400 font-normal">(recommended — enables AI risk insights)</span>
               </label>
               <label
                 htmlFor="create-asset-photo"
@@ -361,46 +397,50 @@ export default function Assets() {
                     <p className="text-xs text-gray-400">PNG, JPG, GIF up to 10 MB</p>
                   </>
                 )}
-                <input
-                  id="create-asset-photo"
-                  type="file"
-                  accept="image/*"
-                  onChange={handlePhotoSelect}
-                  className="hidden"
-                />
+                <input id="create-asset-photo" type="file" accept="image/*" onChange={handlePhotoSelect} className="hidden" />
               </label>
             </div>
 
+            {/* AI status bar */}
+            <div className="min-h-[22px]">
+              {isRecommending && (
+                <div className="flex items-center gap-2 text-xs text-purple-500">
+                  <svg className="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  AI is thinking…
+                </div>
+              )}
+              {!isRecommending && hasSuggestion && (
+                <div className="flex items-center gap-1.5 text-xs text-purple-600">
+                  <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse inline-block" />
+                  AI suggestion ready —
+                  press <kbd className="px-1 py-0.5 rounded bg-purple-100 border border-purple-300 font-mono text-purple-700 text-[11px]">Tab</kbd>
+                  to accept
+                </div>
+              )}
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Name */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
-                    placeholder="e.g. Dell Latitude 5520"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAiRecommend}
-                    disabled={isRecommending || !form.name}
-                    className="px-3 py-2 bg-purple-600 text-white flex items-center gap-1 rounded-lg text-xs hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-                    title="AI will recommend category and type"
-                  >
-                    {isRecommending ? (
-                      <>
-                        <svg className="animate-spin h-3 w-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Suggesting...
-                      </>
-                    ) : 'AI Suggest'}
-                  </button>
-                </div>
+                <input
+                  type="text"
+                  value={form.name}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setForm(prev => ({ ...prev, name: v }));
+                    triggerAi(v, form.description, photoFile?.name);
+                  }}
+                  onKeyDown={(e) => { if (e.key === 'Tab' && hasSuggestion) { e.preventDefault(); acceptSuggestion(); } }}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
+                  placeholder="e.g. Dell Latitude 5520"
+                />
               </div>
+
+              {/* Serial Number */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Serial Number *</label>
                 <input
@@ -411,29 +451,76 @@ export default function Assets() {
                   placeholder="e.g. SN-2024-001"
                 />
               </div>
+
+              {/* Type — with ghost text overlay */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Type *</label>
-                <input
-                  type="text"
-                  value={form.type}
-                  onChange={(e) => setForm({ ...form, type: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
-                  placeholder="e.g. LAPTOP"
-                />
+                <div className="relative">
+                  {/* Ghost text rendered behind the real input */}
+                  {ghostType && !form.type && (
+                    <span
+                      aria-hidden="true"
+                      className="absolute inset-0 flex items-center px-3 text-sm text-purple-300 pointer-events-none select-none truncate"
+                    >
+                      {ghostType}
+                    </span>
+                  )}
+                  <input
+                    type="text"
+                    value={form.type}
+                    onChange={(e) => {
+                      setForm(prev => ({ ...prev, type: e.target.value }));
+                      if (e.target.value) setGhostType(''); // user typed → discard ghost
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Tab' && ghostType && !form.type) {
+                        e.preventDefault();
+                        acceptSuggestion();
+                      }
+                    }}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 bg-transparent relative z-10"
+                    placeholder={ghostType ? '' : 'e.g. LAPTOP'}
+                  />
+                </div>
+                {ghostType && !form.type && (
+                  <p className="mt-0.5 text-xs text-purple-500">
+                    AI suggests: <strong>{ghostType}</strong>
+                  </p>
+                )}
               </div>
+
+              {/* Category — ghost suggestion badge below select */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Category *</label>
                 <select
                   value={form.categoryId}
-                  onChange={(e) => setForm({ ...form, categoryId: Number(e.target.value) })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
+                  onChange={(e) => {
+                    setForm(prev => ({ ...prev, categoryId: Number(e.target.value) }));
+                    if (Number(e.target.value)) setGhostCategoryId(0); // user picked → discard ghost
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Tab' && ghostCategoryId && !form.categoryId) {
+                      e.preventDefault();
+                      acceptSuggestion();
+                    }
+                  }}
+                  className={`w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 ${
+                    ghostCategoryId && !form.categoryId ? 'border-purple-300' : 'border-gray-300'
+                  }`}
                 >
                   <option value={0}>Select category</option>
                   {categories.map(c => (
                     <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
                 </select>
+                {ghostCategoryName && !form.categoryId && (
+                  <p className="mt-0.5 text-xs text-purple-500">
+                    AI suggests: <strong>{ghostCategoryName}</strong>
+                  </p>
+                )}
               </div>
+
+              {/* Purchase Date */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Purchase Date</label>
                 <input
@@ -443,6 +530,8 @@ export default function Assets() {
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
+
+              {/* Purchase Cost */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Purchase Cost</label>
                 <input
@@ -454,6 +543,8 @@ export default function Assets() {
                   placeholder="0.00"
                 />
               </div>
+
+              {/* Warranty Expiry */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Warranty Expiry</label>
                 <input
@@ -464,19 +555,27 @@ export default function Assets() {
                 />
               </div>
             </div>
+
+            {/* Description — triggers AI too */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Description{' '}
-                <span className="text-gray-400 font-normal">(recommended — enables AI risk insights)</span>
+                Description <span className="text-gray-400 font-normal">(recommended — enables AI suggestions)</span>
               </label>
               <textarea
                 value={form.description || ''}
-                onChange={(e) => setForm({ ...form, description: e.target.value || undefined })}
+                onChange={(e) => {
+                  const v = e.target.value || undefined;
+                  setForm(prev => ({ ...prev, description: v }));
+                  triggerAi(form.name, v, photoFile?.name);
+                }}
+                onKeyDown={(e) => { if (e.key === 'Tab' && hasSuggestion) { e.preventDefault(); acceptSuggestion(); } }}
                 rows={2}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
                 placeholder="Describe the asset condition, specs, or usage..."
               />
             </div>
+
+            {/* Notes */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
               <textarea
@@ -487,16 +586,18 @@ export default function Assets() {
               />
             </div>
 
-            {/* AI Recommendation Banner */}
-            {aiRecommendation && (
+            {/* Accepted suggestion confirmation */}
+            {aiSuggestion && (form.type || form.categoryId) && !hasSuggestion && (
               <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
-                <p className="text-sm font-medium text-purple-800">AI Recommendation</p>
+                <p className="text-sm font-medium text-purple-800">AI Suggestion Applied</p>
                 <p className="text-sm text-purple-700">
-                  Category: <strong>{aiRecommendation.recommendedCategory}</strong> |
-                  Type: <strong>{aiRecommendation.recommendedType}</strong> |
-                  Confidence: <strong>{(aiRecommendation.confidence * 100).toFixed(0)}%</strong>
+                  Category: <strong>{aiSuggestion.recommendedCategory}</strong> ·
+                  Type: <strong>{aiSuggestion.recommendedType}</strong> ·
+                  Confidence: <strong>{(aiSuggestion.confidence * 100).toFixed(0)}%</strong>
                 </p>
-                <p className="text-xs text-purple-600 mt-1">{aiRecommendation.reasoning}</p>
+                {aiSuggestion.reasoning && (
+                  <p className="text-xs text-purple-600 mt-1">{aiSuggestion.reasoning}</p>
+                )}
               </div>
             )}
 

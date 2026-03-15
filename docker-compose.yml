@@ -2,14 +2,25 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: bank-assets-db
+    restart: unless-stopped
     environment:
       POSTGRES_DB: bank_assets
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
+    command: >
+      postgres
+      -c shared_buffers=256MB
+      -c max_connections=100
+      -c log_min_duration_statement=1000
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d
+    deploy:
+      resources:
+        limits:
+          memory: 1g
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
@@ -21,7 +32,9 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: bank-assets-backend
+    restart: unless-stopped
     environment:
+      JAVA_OPTS: "-Xms128m -Xmx512m -XX:+UseG1GC"
       DB_HOST: postgres
       DB_PORT: 5432
       DB_NAME: bank_assets
@@ -46,9 +59,13 @@ services:
       AWS_REGION: ${AWS_REGION:-us-east-1}
       AWS_S3_ENDPOINT: ${AWS_S3_ENDPOINT:-}
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     volumes:
       - asset_images:/app/asset-images
+    deploy:
+      resources:
+        limits:
+          memory: 700m
     depends_on:
       postgres:
         condition: service_healthy
@@ -58,6 +75,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: bank-assets-frontend
+    restart: unless-stopped
     ports:
       - "3000:80"
     depends_on:
