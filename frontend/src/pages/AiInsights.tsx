@@ -1,12 +1,23 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { aiApi } from '../api/dashboard';
 import type { AiRiskAssessment } from '../types';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { riskColors } from '../utils/status';
 
+type TabKey = 'all' | 'critical_high' | 'medium' | 'low';
+
+const TABS: { key: TabKey; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'critical_high', label: 'Critical / High' },
+  { key: 'medium', label: 'Medium' },
+  { key: 'low', label: 'Low' },
+];
+
 export default function AiInsights() {
   const [risks, setRisks] = useState<AiRiskAssessment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<TabKey>('all');
 
   useEffect(() => {
     aiApi.assessAllRisks()
@@ -20,6 +31,11 @@ export default function AiInsights() {
   const highRisk = risks.filter(r => r.riskLevel === 'HIGH' || r.riskLevel === 'CRITICAL');
   const mediumRisk = risks.filter(r => r.riskLevel === 'MEDIUM');
   const lowRisk = risks.filter(r => r.riskLevel === 'LOW');
+
+  const filteredRisks = activeTab === 'all' ? risks
+    : activeTab === 'critical_high' ? highRisk
+    : activeTab === 'medium' ? mediumRisk
+    : lowRisk;
 
   return (
     <div className="space-y-6">
@@ -43,18 +59,53 @@ export default function AiInsights() {
         </div>
       </div>
 
+      {/* Tabs */}
+      <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit">
+        {TABS.map(tab => {
+          const count = tab.key === 'all' ? risks.length
+            : tab.key === 'critical_high' ? highRisk.length
+            : tab.key === 'medium' ? mediumRisk.length
+            : lowRisk.length;
+          return (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                activeTab === tab.key
+                  ? 'bg-white shadow-sm text-gray-900'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {tab.label}
+              <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${
+                activeTab === tab.key ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-200 text-gray-600'
+              }`}>
+                {count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
       {/* Risk Cards */}
-      {risks.length === 0 ? (
+      {filteredRisks.length === 0 ? (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
-          <p className="text-gray-500">No assets to analyze. Add assets first.</p>
+          <p className="text-gray-500">
+            {risks.length === 0 ? 'No assets to analyze. Add assets first.' : 'No assets in this risk category.'}
+          </p>
         </div>
       ) : (
         <div className="space-y-4">
-          {risks.map((risk) => (
+          {filteredRisks.map((risk) => (
             <div key={risk.assetId} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
               <div className="flex items-start justify-between">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">{risk.assetName}</h3>
+                  <Link
+                    to={`/assets/${risk.assetId}`}
+                    className="text-lg font-semibold text-indigo-600 hover:text-indigo-800 hover:underline"
+                  >
+                    {risk.assetName}
+                  </Link>
                   <p className="text-sm text-gray-500">Asset ID: {risk.assetId}</p>
                 </div>
                 <div className="flex items-center gap-3">
@@ -103,6 +154,15 @@ export default function AiInsights() {
                     style={{ width: `${risk.failureProbability * 100}%` }}
                   />
                 </div>
+              </div>
+
+              <div className="mt-3 flex justify-end">
+                <Link
+                  to={`/assets/${risk.assetId}`}
+                  className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
+                >
+                  View Asset Details &rarr;
+                </Link>
               </div>
             </div>
           ))}

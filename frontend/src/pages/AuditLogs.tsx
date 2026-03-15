@@ -64,6 +64,13 @@ export default function AuditLogs() {
     setApplied(emptyFilters);
   };
 
+  // Auto-apply handler for select and date inputs (instant apply)
+  const handleInstantFilter = (updated: AuditFilters) => {
+    setFilters(updated);
+    setPage(0);
+    setApplied(updated);
+  };
+
   const hasActiveFilters =
     !!applied.action || !!applied.entityType ||
     !!applied.performedBy || !!applied.startDate || !!applied.endDate;
@@ -79,7 +86,7 @@ export default function AuditLogs() {
             <label className="block text-xs font-medium text-gray-500 mb-1">Action</label>
             <select
               value={filters.action}
-              onChange={e => setFilters(f => ({ ...f, action: e.target.value }))}
+              onChange={e => handleInstantFilter({ ...filters, action: e.target.value })}
               className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500"
             >
               <option value="">All actions</option>
@@ -94,7 +101,7 @@ export default function AuditLogs() {
             <label className="block text-xs font-medium text-gray-500 mb-1">Entity Type</label>
             <select
               value={filters.entityType}
-              onChange={e => setFilters(f => ({ ...f, entityType: e.target.value }))}
+              onChange={e => handleInstantFilter({ ...filters, entityType: e.target.value })}
               className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500"
             >
               <option value="">All entities</option>
@@ -111,7 +118,9 @@ export default function AuditLogs() {
               type="text"
               value={filters.performedBy}
               onChange={e => setFilters(f => ({ ...f, performedBy: e.target.value }))}
-              placeholder="Username..."
+              onBlur={() => handleApply()}
+              onKeyDown={e => e.key === 'Enter' && handleApply()}
+              placeholder="Username... (press Enter)"
               className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500"
             />
           </div>
@@ -122,7 +131,7 @@ export default function AuditLogs() {
             <input
               type="date"
               value={filters.startDate}
-              onChange={e => setFilters(f => ({ ...f, startDate: e.target.value }))}
+              onChange={e => handleInstantFilter({ ...filters, startDate: e.target.value })}
               className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500"
             />
           </div>
@@ -133,7 +142,7 @@ export default function AuditLogs() {
             <input
               type="date"
               value={filters.endDate}
-              onChange={e => setFilters(f => ({ ...f, endDate: e.target.value }))}
+              onChange={e => handleInstantFilter({ ...filters, endDate: e.target.value })}
               className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500"
             />
           </div>

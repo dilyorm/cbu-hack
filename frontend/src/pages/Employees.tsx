@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { PlusIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import { employeeApi } from '../api/organization';
 import type { Employee, EmployeeRequest, Department } from '../types';
@@ -16,6 +16,7 @@ export default function Employees() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
+  const [search, setSearch] = useState('');
   const [form, setForm] = useState<EmployeeRequest>({
     firstName: '', lastName: '', employeeCode: '',
   });
@@ -51,20 +52,43 @@ export default function Employees() {
 
   if (loading) return <LoadingSpinner size="lg" />;
 
+  const filteredEmployees = search.trim()
+    ? employees.filter(e =>
+        e.fullName.toLowerCase().includes(search.toLowerCase()) ||
+        e.employeeCode.toLowerCase().includes(search.toLowerCase()) ||
+        (e.position ?? '').toLowerCase().includes(search.toLowerCase()) ||
+        (e.departmentName ?? '').toLowerCase().includes(search.toLowerCase())
+      )
+    : employees;
+
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <p className="text-sm text-gray-500">{employees.length} employees</p>
-        {canEdit && (
-          <button onClick={() => setShowCreate(true)}
-            className="flex items-center gap-1 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700">
-            <PlusIcon className="h-4 w-4" /> Add Employee
-          </button>
-        )}
+      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+        <div className="relative flex-1 max-w-sm">
+          <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search by name, code, position..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+          />
+        </div>
+        <div className="flex items-center gap-3">
+          <p className="text-sm text-gray-500">
+            {search ? `${filteredEmployees.length} of ${employees.length}` : employees.length} employees
+          </p>
+          {canEdit && (
+            <button onClick={() => setShowCreate(true)}
+              className="flex items-center gap-1 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700">
+              <PlusIcon className="h-4 w-4" /> Add Employee
+            </button>
+          )}
+        </div>
       </div>
 
-      {employees.length === 0 ? (
-        <EmptyState title="No employees" description="Add your first employee" />
+      {filteredEmployees.length === 0 ? (
+        <EmptyState title="No employees" description={search ? "No employees match your search" : "Add your first employee"} />
       ) : (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <table className="min-w-full divide-y divide-gray-200">
@@ -80,7 +104,7 @@ export default function Employees() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {employees.map((emp) => (
+              {filteredEmployees.map((emp) => (
                 <tr key={emp.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">{emp.fullName}</td>
                   <td className="px-6 py-4 text-sm text-gray-500 font-mono">{emp.employeeCode}</td>

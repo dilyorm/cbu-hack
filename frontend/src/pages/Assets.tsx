@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Link } from 'react-router-dom';
-import { PlusIcon, MagnifyingGlassIcon, PhotoIcon } from '@heroicons/react/24/outline';
+import { Link, useSearchParams } from 'react-router-dom';
+import { PlusIcon, MagnifyingGlassIcon, PhotoIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import { assetApi } from '../api/assets';
 import { aiApi } from '../api/dashboard';
@@ -18,12 +18,16 @@ export default function Assets() {
   const canEdit = user?.role === 'ADMIN' || user?.role === 'MANAGER';
   const canDelete = user?.role === 'ADMIN';
 
+  const [searchParams] = useSearchParams();
+  const specialFilter = searchParams.get('filter'); // 'expired-warranty' | 'aging'
+  const initialStatus = searchParams.get('status') || '';
+
   const [assets, setAssets] = useState<Page<Asset> | null>(null);
   const [categories, setCategories] = useState<AssetCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<string>(initialStatus);
   const [categoryFilter, setCategoryFilter] = useState<string>('');
   const [typeFilter, setTypeFilter] = useState<string>('');
   const [showCreate, setShowCreate] = useState(false);
@@ -37,19 +41,34 @@ export default function Assets() {
 
   const loadAssets = useCallback(() => {
     setLoading(true);
-    const promise = search
-      ? assetApi.search(search, page, 20)
-      : assetApi.getAll(page, 20, 'createdAt,desc', {
-          status: statusFilter || undefined,
-          categoryId: categoryFilter ? Number(categoryFilter) : undefined,
-          type: typeFilter || undefined,
-        });
+
+    let promise: Promise<Page<Asset>>;
+
+    if (specialFilter === 'expired-warranty') {
+      promise = assetApi.getExpiredWarranty().then(list => ({
+        content: list, totalElements: list.length, totalPages: 1,
+        size: list.length, number: 0, first: true, last: true,
+      }));
+    } else if (specialFilter === 'aging') {
+      promise = assetApi.getAgingAssets().then(list => ({
+        content: list, totalElements: list.length, totalPages: 1,
+        size: list.length, number: 0, first: true, last: true,
+      }));
+    } else {
+      promise = search
+        ? assetApi.search(search, page, 20)
+        : assetApi.getAll(page, 20, 'createdAt,desc', {
+            status: statusFilter || undefined,
+            categoryId: categoryFilter ? Number(categoryFilter) : undefined,
+            type: typeFilter || undefined,
+          });
+    }
 
     promise
       .then(setAssets)
       .catch((err: Error) => toast.error(err.message))
       .finally(() => setLoading(false));
-  }, [page, search, statusFilter, categoryFilter, typeFilter]);
+  }, [page, search, statusFilter, categoryFilter, typeFilter, specialFilter]);
 
   useEffect(() => {
     loadAssets();
@@ -153,50 +172,70 @@ export default function Assets() {
 
   return (
     <div className="space-y-4">
+      {/* Special filter banner */}
+      {specialFilter && (
+        <div className="flex items-center justify-between bg-orange-50 border border-orange-200 rounded-xl px-4 py-3">
+          <p className="text-sm font-medium text-orange-800">
+            {specialFilter === 'expired-warranty'
+              ? 'Showing assets with expired warranty'
+              : 'Showing aging assets (5+ years old)'}
+          </p>
+          <Link to="/assets" className="flex items-center gap-1 text-sm text-orange-600 hover:text-orange-800">
+            <XMarkIcon className="h-4 w-4" /> Clear filter
+          </Link>
+        </div>
+      )}
+
       {/* Toolbar */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        <form onSubmit={handleSearchSubmit} className="flex gap-2 flex-1 max-w-md">
-          <div className="relative flex-1">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search assets..."
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); if (!e.target.value) setPage(0); }}
-              className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-            />
-          </div>
-          <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700">
-            Search
-          </button>
-        </form>
+        {!specialFilter && (
+          <form onSubmit={handleSearchSubmit} className="flex gap-2 flex-1 max-w-md">
+            <div className="relative flex-1">
+              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search assets..."
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); if (!e.target.value) setPage(0); }}
+                className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              />
+            </div>
+            <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700">
+              Search
+            </button>
+          </form>
+        )}
 
         <div className="flex flex-wrap gap-2 items-center">
-          <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); handleFilterChange(); }}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm">
-            <option value="">All Statuses</option>
-            <option value="REGISTERED">Registered</option>
-            <option value="ASSIGNED">Assigned</option>
-            <option value="IN_REPAIR">In Repair</option>
-            <option value="LOST">Lost</option>
-            <option value="WRITTEN_OFF">Written Off</option>
-          </select>
+          {!specialFilter && (
+            <>
+              <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); handleFilterChange(); }}
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                <option value="">All Statuses</option>
+                <option value="REGISTERED">Registered</option>
+                <option value="ASSIGNED">Assigned</option>
+                <option value="IN_REPAIR">In Repair</option>
+                <option value="LOST">Lost</option>
+                <option value="WRITTEN_OFF">Written Off</option>
+              </select>
 
-          <select value={categoryFilter} onChange={e => { setCategoryFilter(e.target.value); handleFilterChange(); }}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm">
-            <option value="">All Categories</option>
-            {categories.map(c => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
+              <select value={categoryFilter} onChange={e => { setCategoryFilter(e.target.value); handleFilterChange(); }}
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                <option value="">All Categories</option>
+                {categories.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
 
-          <input
-            type="text"
-            placeholder="Filter by type..."
-            value={typeFilter}
-            onChange={e => { setTypeFilter(e.target.value); handleFilterChange(); }}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-36"
-          />
+              <input
+                type="text"
+                placeholder="Filter by type..."
+                value={typeFilter}
+                onChange={e => { setTypeFilter(e.target.value); handleFilterChange(); }}
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-36"
+              />
+            </>
+          )}
 
           {canEdit && (
             <button

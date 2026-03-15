@@ -30,12 +30,12 @@ export default function Dashboard() {
   if (!stats) return <p className="text-red-500">Failed to load dashboard data</p>;
 
   const statusCards = [
-    { label: 'Total Assets', value: stats.totalAssets, icon: CubeIcon, color: 'text-indigo-600', bg: 'bg-indigo-50' },
-    { label: 'Registered', value: stats.registeredCount, icon: CheckCircleIcon, color: 'text-blue-600', bg: 'bg-blue-50' },
-    { label: 'Assigned', value: stats.assignedCount, icon: CheckCircleIcon, color: 'text-green-600', bg: 'bg-green-50' },
-    { label: 'In Repair', value: stats.inRepairCount, icon: WrenchScrewdriverIcon, color: 'text-yellow-600', bg: 'bg-yellow-50' },
-    { label: 'Lost', value: stats.lostCount, icon: ExclamationTriangleIcon, color: 'text-red-600', bg: 'bg-red-50' },
-    { label: 'Written Off', value: stats.writtenOffCount, icon: ArchiveBoxXMarkIcon, color: 'text-gray-600', bg: 'bg-gray-50' },
+    { label: 'Total Assets', value: stats.totalAssets, icon: CubeIcon, color: 'text-indigo-600', bg: 'bg-indigo-50', link: '/assets' },
+    { label: 'Registered', value: stats.registeredCount, icon: CheckCircleIcon, color: 'text-blue-600', bg: 'bg-blue-50', link: '/assets?status=REGISTERED' },
+    { label: 'Assigned', value: stats.assignedCount, icon: CheckCircleIcon, color: 'text-green-600', bg: 'bg-green-50', link: '/assets?status=ASSIGNED' },
+    { label: 'In Repair', value: stats.inRepairCount, icon: WrenchScrewdriverIcon, color: 'text-yellow-600', bg: 'bg-yellow-50', link: '/assets?status=IN_REPAIR' },
+    { label: 'Lost', value: stats.lostCount, icon: ExclamationTriangleIcon, color: 'text-red-600', bg: 'bg-red-50', link: '/assets?status=LOST' },
+    { label: 'Written Off', value: stats.writtenOffCount, icon: ArchiveBoxXMarkIcon, color: 'text-gray-600', bg: 'bg-gray-50', link: '/assets?status=WRITTEN_OFF' },
   ];
 
   const categoryData = Object.entries(stats.byCategory).map(([name, value]) => ({ name, value }));
@@ -47,7 +47,7 @@ export default function Dashboard() {
       {/* Stats cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         {statusCards.map((card) => (
-          <div key={card.label} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+          <Link key={card.label} to={card.link} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 hover:shadow-md hover:border-indigo-300 transition-all">
             <div className="flex items-center gap-3">
               <div className={`p-2 rounded-lg ${card.bg}`}>
                 <card.icon className={`h-5 w-5 ${card.color}`} />
@@ -57,7 +57,7 @@ export default function Dashboard() {
                 <p className="text-xs text-gray-500">{card.label}</p>
               </div>
             </div>
-          </div>
+          </Link>
         ))}
       </div>
 
@@ -70,12 +70,12 @@ export default function Dashboard() {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <h3 className="text-sm font-medium text-gray-500">Expired Warranty</h3>
           <p className="mt-2 text-3xl font-bold text-orange-600">{stats.expiredWarrantyCount}</p>
-          <Link to="/analytics" className="text-sm text-indigo-600 hover:text-indigo-800">View details</Link>
+          <Link to="/assets?filter=expired-warranty" className="text-sm text-indigo-600 hover:text-indigo-800">View details</Link>
         </div>
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <h3 className="text-sm font-medium text-gray-500">Aging Assets (5+ years)</h3>
           <p className="mt-2 text-3xl font-bold text-red-600">{stats.agingAssetsCount}</p>
-          <Link to="/analytics" className="text-sm text-indigo-600 hover:text-indigo-800">View details</Link>
+          <Link to="/assets?filter=aging" className="text-sm text-indigo-600 hover:text-indigo-800">View details</Link>
         </div>
       </div>
 
