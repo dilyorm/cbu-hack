@@ -18,6 +18,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -75,6 +77,13 @@ public class AssetController {
             @RequestParam String query,
             @PageableDefault(size = 20) Pageable pageable) {
         return ResponseEntity.ok(assetService.search(query, pageable));
+    }
+
+    /** Returns only the assets assigned to the currently authenticated user's employee record. */
+    @GetMapping("/my")
+    public ResponseEntity<List<AssetResponse>> getMyAssets(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.ok(assetService.getMyAssets(userDetails.getUsername()));
     }
 
     @PutMapping("/{id}")

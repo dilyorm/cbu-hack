@@ -17,10 +17,12 @@ export default function Assets() {
   const { user } = useAuth();
   const canEdit = user?.role === 'ADMIN' || user?.role === 'MANAGER';
   const canDelete = user?.role === 'ADMIN';
+  const isUser = user?.role === 'USER';
 
   const [searchParams] = useSearchParams();
-  const specialFilter = searchParams.get('filter');
-  const initialStatus = searchParams.get('status') || '';
+  // Special filters only available to ADMIN/MANAGER
+  const specialFilter = isUser ? null : searchParams.get('filter');
+  const initialStatus = isUser ? '' : (searchParams.get('status') || '');
 
   const [assets, setAssets] = useState<Page<Asset> | null>(null);
   const [categories, setCategories] = useState<AssetCategory[]>([]);
@@ -121,7 +123,12 @@ export default function Assets() {
     setLoading(true);
 
     let promise: Promise<Page<Asset>>;
-    if (specialFilter === 'expired-warranty') {
+    if (isUser) {
+      promise = assetApi.getMyAssets().then(list => ({
+        content: list, totalElements: list.length, totalPages: 1,
+        size: list.length, number: 0, first: true, last: true,
+      }));
+    } else if (specialFilter === 'expired-warranty') {
       promise = assetApi.getExpiredWarranty().then(list => ({
         content: list, totalElements: list.length, totalPages: 1,
         size: list.length, number: 0, first: true, last: true,
@@ -145,7 +152,7 @@ export default function Assets() {
       .then(setAssets)
       .catch((err: Error) => toast.error(err.message))
       .finally(() => setLoading(false));
-  }, [page, search, statusFilter, categoryFilter, typeFilter, specialFilter]);
+  }, [isUser, page, search, statusFilter, categoryFilter, typeFilter, specialFilter]);
 
   useEffect(() => { loadAssets(); }, [loadAssets]);
   useEffect(() => { assetApi.getCategories().then(setCategories).catch(console.error); }, []);
@@ -209,6 +216,15 @@ export default function Assets() {
 
   return (
     <div className="space-y-4">
+      {/* My Assets banner for USER role */}
+      {isUser && (
+        <div className="flex items-center bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-3">
+          <p className="text-sm font-medium text-indigo-800">
+            Showing assets currently assigned to you
+          </p>
+        </div>
+      )}
+
       {/* Special filter banner */}
       {specialFilter && (
         <div className="flex items-center justify-between bg-orange-50 border border-orange-200 rounded-xl px-4 py-3">
@@ -223,7 +239,8 @@ export default function Assets() {
         </div>
       )}
 
-      {/* Toolbar */}
+      {/* Toolbar — hidden for USER role */}
+      {!isUser && (
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         {!specialFilter && (
           <form onSubmit={handleSearchSubmit} className="flex gap-2 flex-1 max-w-md">
@@ -285,6 +302,7 @@ export default function Assets() {
           )}
         </div>
       </div>
+      )}
 
       {/* Asset Table */}
       {loading ? (

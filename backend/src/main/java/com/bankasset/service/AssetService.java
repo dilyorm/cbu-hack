@@ -15,6 +15,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -34,6 +35,7 @@ public class AssetService {
     private final DepartmentService departmentService;
     private final BranchService branchService;
     private final AuditService auditService;
+    private final UserRepository userRepository;
 
     // ===== CRUD =====
 
@@ -367,6 +369,101 @@ public class AssetService {
     public List<AssetResponse> getAgingAssets(int yearsOld) {
         return assetRepository.findAgingAssets(LocalDate.now().minusYears(yearsOld))
                 .stream().map(this::toResponse).toList();
+    }
+
+    // ===== USER-SCOPED (MY ASSETS / MY STATS) =====
+
+    /**
+     * Returns all assets currently assigned to the employee linked to the given username.
+     * If no employee link exists, returns an empty list.
+     */
+    @Transactional(readOnly = true)
+    public List<AssetResponse> getMyAssets(String username) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + username));
+        if (user.getEmployeeId() == null) return List.of();
+        return assetRepository.findByCurrentEmployeeId(user.getEmployeeId())
+                .stream().map(this::toResponse).toList();
+    }
+
+    /**
+     * Returns dashboard stats scoped to only the assets assigned to the calling user's employee.
+     * If no employee link exists, returns zeroed stats.
+     */
+    @Transactional(readOnly = true)
+    public DashboardStats getMyDashboardStats(String username) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + username));
+        if (user.getEmployeeId() == null) {
+            return DashboardStats.builder()
+                    .totalAssets(0).registeredCount(0).assignedCount(0)
+                    .inRepairCount(0).lostCount(0).writtenOffCount(0)
+                    .totalAssetValue(BigDecimal.ZERO)
+                    .byStatus(Map.of()).byCategory(Map.of()).byDepartment(Map.of())
+                    .expiredWarrantyCount(0).agingAssetsCount(0)
+                    .build();
+        }
+
+        List<Asset> myAssets = assetRepository.findByCurrentEmployeeId(user.getEmployeeId());
+
+        long total = myAssets.size();
+        long registered = myAssets.stream().filter(a -> a.getStatus() == AssetStatus.REGISTERED).count();
+        long assigned   = myAssets.stream().filter(a -> a.getStatus() == AssetStatus.ASSIGNED).count();
+        long inRepair   = myAssets.stream().filter(a -> a.getStatus() == AssetStatus.IN_REPAIR).count();
+        long lost       = myAssets.stream().filter(a -> a.getStatus() == AssetStatus.LOST).count();
+        long writtenOff = myAssets.stream().filter(a -> a.getStatus() == AssetStatus.WRITTEN_OFF).count();
+
+        BigDecimal totalValue = myAssets.stream()
+                .filter(a -> a.getStatus() != AssetStatus.WRITTEN_OFF && a.getPurchaseCost() != null)
+                .map(Asset::getPurchaseCost)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // byStatus
+        Map<String, Long> byStatus = new LinkedHashMap<>();
+        for (AssetStatus s : AssetStatus.values()) {
+            long count = myAssets.stream().filter(a -> a.getStatus() == s).count();
+            if (count > 0) byStatus.put(s.name(), count);
+        }
+
+        // byCategory
+        Map<String, Long> byCategory = new LinkedHashMap<>();
+        for (Asset a : myAssets) {
+            String cat = a.getCategory().getName();
+            byCategory.merge(cat, 1L, Long::sum);
+        }
+
+        // byDepartment (for user's own assets, typically one dept, but handle generically)
+        Map<String, Long> byDepartment = new LinkedHashMap<>();
+        for (Asset a : myAssets) {
+            if (a.getCurrentDepartment() != null) {
+                byDepartment.merge(a.getCurrentDepartment().getName(), 1L, Long::sum);
+            }
+        }
+
+        LocalDate today = LocalDate.now();
+        long expiredWarranty = myAssets.stream()
+                .filter(a -> a.getWarrantyExpiryDate() != null && a.getWarrantyExpiryDate().isBefore(today))
+                .count();
+        LocalDate agingCutoff = today.minusYears(5);
+        long aging = myAssets.stream()
+                .filter(a -> a.getPurchaseDate() != null && a.getPurchaseDate().isBefore(agingCutoff)
+                        && a.getStatus() != AssetStatus.WRITTEN_OFF)
+                .count();
+
+        return DashboardStats.builder()
+                .totalAssets(total)
+                .registeredCount(registered)
+                .assignedCount(assigned)
+                .inRepairCount(inRepair)
+                .lostCount(lost)
+                .writtenOffCount(writtenOff)
+                .totalAssetValue(totalValue)
+                .byStatus(byStatus)
+                .byCategory(byCategory)
+                .byDepartment(byDepartment)
+                .expiredWarrantyCount(expiredWarranty)
+                .agingAssetsCount(aging)
+                .build();
     }
 
     // ===== IMAGE =====

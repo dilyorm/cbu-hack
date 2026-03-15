@@ -45,6 +45,10 @@ public class User implements UserDetails {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
+    /** Optional link to an Employee record. Null for ADMIN/MANAGER accounts. */
+    @Column(name = "employee_id")
+    private Long employeeId;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();

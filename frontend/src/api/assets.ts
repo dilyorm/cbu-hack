@@ -101,4 +101,8 @@ export const assetApi = {
 
   getAgingAssets: (years = 5) =>
     api.get<Asset[]>('/assets/analytics/aging', { params: { years } }).then(r => r.data),
+
+  // My assets (USER role — only assets assigned to current user's employee)
+  getMyAssets: () =>
+    api.get<Asset[]>('/assets/my').then(r => r.data),
 };
