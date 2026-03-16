@@ -49,6 +49,8 @@ public class SecurityConfig {
                         // Public endpoints
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/public/**").permitAll()
+                        // QR code images are not sensitive — allow unauthenticated access
+                        .requestMatchers("/api/assets/*/qr").permitAll()
                         // Swagger / OpenAPI
                         .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
                         // Actuator health

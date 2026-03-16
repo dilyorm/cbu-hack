@@ -405,13 +405,28 @@ export default function AssetDetail() {
               )}
             </div>
             <div className="mt-4 flex gap-2">
-              <a
-                href={assetApi.getQrCodeUrl(assetId)}
-                download={`qr-${asset.serialNumber}.png`}
+              <button
+                onClick={async () => {
+                  try {
+                    const resp = await fetch(assetApi.getQrCodeUrl(assetId));
+                    if (!resp.ok) throw new Error('Failed to fetch QR code');
+                    const blob = await resp.blob();
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `qr-${asset.serialNumber}.png`;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    URL.revokeObjectURL(url);
+                  } catch {
+                    toast.error('Failed to download QR code');
+                  }
+                }}
                 className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700"
               >
                 Download QR Code (PNG)
-              </a>
+              </button>
               <a
                 href={`/api/public/assets/${assetId}/pdf`}
                 download
